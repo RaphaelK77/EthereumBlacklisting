@@ -332,31 +332,7 @@ def get_swap_tokens(contract_address: str):
     :param contract_address: address of the smart contract
     :return: token0, token1 / None, None if an error occurs
     """
-    token_functions_abi = [{
-        "inputs": [],
-        "name": "token0",
-        "outputs": [
-            {
-                "internalType": "address",
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    }, {
-        "inputs": [],
-        "name": "token1",
-        "outputs": [
-            {
-                "internalType": "address",
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    }]
+    token_functions_abi = function_abis["Tokens"]
 
     contract = w3.eth.contract(address=Web3.toChecksumAddress(contract_address), abi=token_functions_abi)
 
