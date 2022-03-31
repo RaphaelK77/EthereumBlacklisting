@@ -4,7 +4,8 @@ event_abis = {
         'inputs': [{'indexed': True, 'name': 'from', 'type': 'address'},
                    {'indexed': True, 'name': 'to', 'type': 'address'},
                    {'indexed': False, 'name': 'value', 'type': 'uint256'}],
-        'name': 'Transfer', 'type': 'event'
+        'name': 'Transfer',
+        'type': 'event'
     }],
     "Swap": [{
         'anonymous': False,
@@ -14,33 +15,22 @@ event_abis = {
                    {'indexed': False, 'internalType': 'uint256', 'name': 'amount0Out', 'type': 'uint256'},
                    {'indexed': False, 'internalType': 'uint256', 'name': 'amount1Out', 'type': 'uint256'},
                    {'indexed': True, 'internalType': 'address', 'name': 'to', 'type': 'address'}],
-        'name': 'Swap', 'type': 'event'
+        'name': 'Swap',
+        'type': 'event'
     }],
     "Deposit": [{
         "anonymous": False,
         "inputs":
-            [
-                {"indexed": True,
-                 "name": "dst",
-                 "type": "address"},
-                {"indexed": False,
-                 "name": "wad",
-                 "type": "uint256"}
-            ],
+            [{"indexed": True, "name": "dst", "type": "address"},
+             {"indexed": False, "name": "wad", "type": "uint256"}],
         "name": "Deposit",
         "type": "event"
     }],
     "Withdrawal": [{
         "anonymous": False,
         "inputs":
-            [
-                {"indexed": True,
-                 "name": "src",
-                 "type": "address"},
-                {"indexed": False,
-                 "name": "wad",
-                 "type": "uint256"}
-            ],
+            [{"indexed": True, "name": "src", "type": "address"},
+             {"indexed": False, "name": "wad", "type": "uint256"}],
         "name": "Withdrawal",
         "type": "event"
     }]}
@@ -50,12 +40,10 @@ function_abis = {
         "constant": True,
         "inputs": [],
         "name": "name",
-        "outputs": [
-            {
-                "name": "",
-                "type": "string"
-            }
-        ],
+        "outputs": [{
+            "name": "",
+            "type": "string"
+        }],
         "payable": False,
         "stateMutability": "view",
         "type": "function"
@@ -64,12 +52,10 @@ function_abis = {
         "constant": True,
         "inputs": [],
         "name": "symbol",
-        "outputs": [
-            {
-                "name": "",
-                "type": "string"
-            }
-        ],
+        "outputs": [{
+            "name": "",
+            "type": "string"
+        }],
         "payable": False,
         "stateMutability": "view",
         "type": "function"
@@ -78,12 +64,10 @@ function_abis = {
         "constant": True,
         "inputs": [],
         "name": "name",
-        "outputs": [
-            {
-                "name": "",
-                "type": "string"
-            }
-        ],
+        "outputs": [{
+            "name": "",
+            "type": "string"
+        }],
         "payable": False,
         "stateMutability": "view",
         "type": "function"
@@ -91,12 +75,10 @@ function_abis = {
         "constant": True,
         "inputs": [],
         "name": "symbol",
-        "outputs": [
-            {
-                "name": "",
-                "type": "string"
-            }
-        ],
+        "outputs": [{
+            "name": "",
+            "type": "string"
+        }],
         "payable": False,
         "stateMutability": "view",
         "type": "function"
