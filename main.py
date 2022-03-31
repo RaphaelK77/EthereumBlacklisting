@@ -526,22 +526,21 @@ if __name__ == '__main__':
     # PICK WEB3 PROVIDER
     w3 = w3_local
 
+    # read database location from config and open it
     database = db.Database(parameters["Database"])
 
+    # get the latest block and log it
     latest_block = w3.eth.get_block_number()
     logging.info(f"Latest block: {latest_block}.")
 
+    # example block and transaction
     test_block = 14394958
     test_tx = "0x7435b60090e0347fc09bb961e02a4dd5baa59ce0ed83de2f0dffca36243d66f9"
 
     # ********* TESTING *************
 
-    # for r in w3.eth.get_block_receipts(test_block):
-    #    print(to_tx_receipt(r))
-    # [print(dict(r).keys()) for r in w3.eth.get_block_receipts(test_block)]
-    # [print(r) for r in w3.eth.get_block_receipts(test_block)]
-
     # transaction_balance_test('0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D')
+    # more balance test accounts
     '0x220bdA5c8994804Ac96ebe4DF184d25e5c2196D4'
     '0x1111111254fb6c44bAC0beD2854e76F90643097d'
 
@@ -551,14 +550,6 @@ if __name__ == '__main__':
 
     # ------------------ INACTIVE CODE --------------------------
 
-    for transaction in w3.eth.get_block(test_block, full_transactions=True)["transactions"]:
-        if not is_contract(transaction["to"]):
-            continue
-        tx_logs = get_all_events_of_type_in_tx(transaction["hash"], )
-        for key in sorted(tx_logs):
-            print(f"{key}: {tx_logs[key]}")
-
-    # print(w3.eth.get_block_receipts(test_block)[2])
     for tx in w3.eth.get_block_receipts(test_block):
         if tx["logs"]:
             converted_transaction = utils.format_log_dict(tx)
@@ -581,29 +572,3 @@ if __name__ == '__main__':
 
                     print("")
             break
-
-    for transaction in w3.eth.get_block(test_block, full_transactions=True)["transactions"]:
-        if not is_contract(transaction["to"]):
-            continue
-        swap_counter = 0
-        logs = get_transaction_logs(transaction["hash"])
-        for log_id in logs:
-            if logs[log_id]["event"] == "Swap":
-                swap_counter += 1
-        print(f"Found {swap_counter} swaps in transaction {transaction['hash'].hex()}.")
-
-    # TODO: counter for database accesses
-
-    # quit
-    shutdown()
-
-    for tx in w3.eth.get_block(test_block, full_transactions=True)["transactions"]:
-        tx = dict(tx)
-        if tx["hash"].hex() == test_tx:
-            input_data = get_input_data(tx, test_block)
-            print_all(input_data)
-            logs = w3.eth.get_transaction_receipt(tx["hash"])["logs"]
-            for processed_log in logs:
-                if processed_log["address"] in input_data[1]["path"]:
-                    print(processed_log)
-            print(get_swap_path(tx, test_block))
