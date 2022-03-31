@@ -5,7 +5,7 @@ from json import JSONDecodeError
 
 import requests
 import web3.constants
-from typing import Union, List
+from typing import Union, List, Tuple, Optional
 
 from hexbytes import HexBytes
 from web3 import Web3
@@ -39,6 +39,7 @@ parameters = config["PARAMETERS"]
 remote_provider = Web3.HTTPProvider(parameters["InfuraLink"])
 local_provider = Web3.HTTPProvider("http://localhost:8545")
 
+# read Etherscan API key from config
 ETHERSCAN_API_KEY = parameters["EtherScanKey"]
 
 
@@ -125,6 +126,12 @@ def poison_test():
 
 
 def is_contract(address: str):
+    """
+    Check if the given address is a smart contract
+
+    :param address: Ethereum address
+    :return: True if smart contract
+    """
     return w3.eth.get_code(address).hex() != "0x"
 
 
@@ -164,17 +171,23 @@ def list_functions_for_contract(address: str, block: int):
     return function_list
 
 
-def get_contract(address: str, block: int, abi=None):
-    if abi is None:
-        abi = get_abi(address, block)
-        if not abi:
-            return None
+def get_contract(address: str, block: int):
+    """
+    Retrieve the ABI of the given contract address from Etherscan and return a Web3 contract
+
+    :param address: Ethereum address of the contract
+    :param block: block at which the last access should be recorded
+    :return: web3 Contract object
+    """
+    abi = get_abi(address, block)
+    if not abi:
+        return None
     return w3.eth.contract(address=Web3.toChecksumAddress(address), abi=abi)
 
 
 def get_contract_name_symbol_old(address: str, block: int, force_refresh=False):
     """
-    Get the name and symbol of a smart contract address
+    DEPRECATED Get the name and symbol of a smart contract address
 
     :param force_refresh: stops database check and overwrites already saved data
     :param address: ethereum account address
@@ -221,7 +234,13 @@ def get_contract_name_symbol_old(address: str, block: int, force_refresh=False):
     return name, symbol
 
 
-def get_contract_name_symbol(address: str):
+def get_contract_name_symbol(address: str) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Retrieves the token name and symbol from a token address
+
+    :param address: Ethereum address
+    :return: (name, symbol) as string if available, else None for each unavailable field
+    """
     name_symbol_abi = function_abis["Name+Symbol"]
 
     contract = w3.eth.contract(address=Web3.toChecksumAddress(address), abi=name_symbol_abi)
@@ -258,12 +277,13 @@ def get_invoked_function(transaction_dict: dict = None, transaction_hash: HexByt
 
 
 def shutdown():
+    """
+    Perform cleanup and exit the program
+
+    :return:
+    """
     database.cleanup()
     exit(0)
-
-
-def print_all(input_list: list):
-    [print(element) for element in input_list]
 
 
 def get_input_data(transaction: Union[AttributeDict, dict], block: int):
@@ -351,10 +371,10 @@ def get_swap_tokens(contract_address: str):
 
 def get_all_events_of_type_in_tx(receipt: AttributeDict, event_types: List[str]):
     """
-    Retrieves all events of the given type from the logs of the given transaction
+    Retrieves all events of the given types from the logs of the given transaction
 
     :param receipt: transaction receipt
-    :param event_types: the type of the events (Transfer, Swap)
+    :param event_types: the type of the events (Transfer, Swap, Deposit, Withdrawal)
     :return: dictionary of {log_id: decoded_log}
     """
     _log_dict = {}
