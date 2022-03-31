@@ -24,19 +24,22 @@ import configparser
 
 from utils import format_log_dict
 
+# configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[logging.StreamHandler(sys.stdout)]
 )
 
+# read config.ini
 config = configparser.ConfigParser()
 config.read("config.ini")
 parameters = config["PARAMETERS"]
 
+# read Infura API link from config
 remote_provider = Web3.HTTPProvider(parameters["InfuraLink"])
+
+# use default Erigon URL for local provider
 local_provider = Web3.HTTPProvider("http://localhost:8545")
 
 # read Etherscan API key from config
@@ -394,7 +397,7 @@ def get_all_events_of_type_in_tx(receipt: AttributeDict, event_types: List[str])
                 continue
             checked_addresses.append(smart_contract)
 
-            contract_object = get_contract(address=smart_contract, block=test_block, abi=token_contract_abi)
+            contract_object = w3.eth.contract(address=Web3.toChecksumAddress(smart_contract), abi=token_contract_abi)
 
             if contract_object is None:
                 logging.warning(f"No ABI found for address {smart_contract}")
@@ -427,8 +430,7 @@ def get_transaction_logs(receipt: AttributeDict):
             continue
 
         checked_addresses.append(smart_contract)
-        caller_abi = get_abi(smart_contract, test_block)
-        contract_object = get_contract(address=smart_contract, block=test_block, abi=caller_abi)
+        contract_object = get_contract(address=smart_contract, block=test_block)
 
         if contract_object is None:
             logging.warning(f"No ABI found for address {smart_contract}")
