@@ -11,9 +11,9 @@ class PoisonPolicy(BlacklistPolicy):
         super().__init__(w3)
         self.blacklist = set()
 
-    def check_transaction(self, transaction, logging_enabled=False):
-        sender = transaction["from"]
-        receiver = transaction["to"]
+    def check_transaction(self, transaction_log, transaction):
+        sender = transaction_log["from"]
+        receiver = transaction_log["to"]
         logging.debug(f"Checking transaction from {sender} to {receiver}...")
 
         # TODO: transfers

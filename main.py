@@ -18,7 +18,7 @@ import database as db
 import utils
 from abis import event_abis, function_abis
 from data_structures import Transaction
-from ethereum_functions import get_token_balance
+from ethereum_utils import EthereumUtils
 from policy_poison import PoisonPolicy
 
 import configparser
@@ -475,11 +475,11 @@ def transaction_balance_test(target_account: str):
             #    continue
 
             if sender == target_account or receiver == target_account:
-                before = get_token_balance(sender, token_address, block_number)
+                before = eth_utils.get_token_balance(sender, token_address, block_number)
                 print(f"Sender balance before: {before:,}")
                 print(f"Transfer of {transfer['args']['value']:,} in currency {token_address} {get_contract_name_symbol(token_address)} from {sender} to {transfer['args']['to']} " +
                       f"(transaction {transfer['transactionHash'].hex()})")
-                after = get_token_balance(sender, token_address, block_number + 1)
+                after = eth_utils.get_token_balance(sender, token_address, block_number + 1)
                 difference = after - before
                 print(f"Sender balance after: {after:,}")
                 print(f"Difference: {difference:,}")
@@ -501,6 +501,8 @@ if __name__ == '__main__':
 
     # read database location from config and open it
     database = db.Database(parameters["Database"])
+
+    eth_utils = EthereumUtils(w3)
 
     # get the latest block and log it
     latest_block = w3.eth.get_block_number()
