@@ -18,6 +18,7 @@ import database as db
 import utils
 from abis import event_abis, function_abis
 from data_structures import Transaction
+from ethereum_functions import get_token_balance
 from policy_poison import PoisonPolicy
 
 import configparser
@@ -322,32 +323,6 @@ def get_swap_path(transaction, block: int):
     return " -> ".join(currency_list)
 
 
-def get_token_balance(account: str, token_address: str, block: int = None):
-    """
-    Retrieves the token balance of the given account at the given block
-
-    :param account: Ethereum account
-    :param token_address: Ethereum address of token
-    :param block: block to be executed at
-    :return: token balance, -1 if it cannot be retrieved
-    """
-
-    if block is None:
-        block = w3.eth.get_block_number()
-
-    token_contract_abi = [{"type": "function", "name": "balanceOf", "constant": "true", "payable": "false", "inputs": [{"name": "", "type": "address"}], "outputs": [{"name": "", "type": "uint256"}]}]
-
-    contract = w3.eth.contract(address=Web3.toChecksumAddress(token_address), abi=token_contract_abi)
-
-    try:
-        balance = contract.functions.balanceOf(account).call({}, block)
-    except web3.exceptions.BadFunctionCallOutput:
-        logging.warning(f"BalanceOf function for token smart contract at {token_address} could not be executed.")
-        balance = -1
-
-    return balance
-
-
 def get_swap_tokens(contract_address: str):
     """
     Gets the addresses of the token pair of a DEX smart contract
@@ -537,12 +512,10 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    # transaction_balance_test('0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D')
+    transaction_balance_test('0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D')
     # more balance test accounts
     '0x220bdA5c8994804Ac96ebe4DF184d25e5c2196D4'
     '0x1111111254fb6c44bAC0beD2854e76F90643097d'
-
-    print(get_abi("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", 0))
 
     shutdown()
 
