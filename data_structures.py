@@ -49,11 +49,11 @@ class BlacklistPolicy(ABC):
         self.w3 = w3
 
     @abstractmethod
-    def check_transaction(self, transaction):
+    def check_transaction(self, transaction_log, transaction):
         pass
 
     @abstractmethod
-    def add_to_blacklist(self, address: str, amount: int, currency):
+    def add_to_blacklist(self, address: str, amount: int, currency: str):
         pass
 
     def propagate_blacklist(self, start_block, block_amount):
@@ -67,7 +67,7 @@ class BlacklistPolicy(ABC):
         for i in range(start_block, start_block + block_amount):
             transactions = self.w3.eth.get_block(i, full_transactions=True)["transactions"]
             if transactions:
-                [self.check_transaction(t) for t in transactions]
+                [self.check_transaction(t, None) for t in transactions]
             if i % interval == 0 and i - start_block > 0:
                 blocks_scanned = i - start_block
                 elapsed_time = time.time() - start_time
