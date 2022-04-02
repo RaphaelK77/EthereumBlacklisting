@@ -53,7 +53,7 @@ class BlacklistPolicy(ABC):
         pass
 
     @abstractmethod
-    def add_to_blacklist(self, address: str, amount, currency: str):
+    def add_to_blacklist(self, address: str, amount, currency: str, block: int):
         pass
 
     def propagate_blacklist(self, start_block, block_amount):

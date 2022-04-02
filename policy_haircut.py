@@ -45,7 +45,7 @@ class HaircutPolicy(BlacklistPolicy):
                         if "all" in self.blacklist[account] and not self.is_eth(token):
                             # taint entire balance of this token if not
                             if token not in self.blacklist[account]["all"]:
-                                self.add_to_blacklist(account, self.eth_utils.get_token_balance(account, token, self.current_block), token)
+                                self.add_to_blacklist(account, self.eth_utils.get_token_balance(account, token, self.current_block), token, self.current_block)
                                 # add token to "all"-list to mark it as done
                                 self.blacklist[account]["all"].append(token)
 
@@ -63,7 +63,7 @@ class HaircutPolicy(BlacklistPolicy):
 
         transferred_amount = amount_sent * taint_proportion
         self.blacklist[from_address][currency] -= transferred_amount
-        self.add_to_blacklist(to_address, transferred_amount, currency)
+        self.add_to_blacklist(address=to_address, currency=currency, block=self.current_block, amount=transferred_amount)
 
     def is_eth(self, currency: str):
         if currency == "ETH":
@@ -95,7 +95,10 @@ class HaircutPolicy(BlacklistPolicy):
             del self.blacklist[address][currency]
         return new_balance
 
-    def add_to_blacklist(self, address: str, amount, currency: str):
+    def add_to_blacklist(self, address: str, currency: str, block: int, amount: Union[int, float] = -1):
+        if currency == "all":
+            self.add_to_blacklist(address=address, currency="ETH", amount=self.get_eth_balance(address=address, block=block), block=block)
+            amount = []
         if address not in self.blacklist:
             self.blacklist[address] = {currency: amount}
         else:
@@ -103,7 +106,6 @@ class HaircutPolicy(BlacklistPolicy):
                 self.blacklist[address][currency] += amount
             else:
                 self.blacklist[address][currency] = amount
-        # TODO: blacklist all ETH and WETH if "all" flag is set
 
     def add_account_to_blacklist(self, address: str):
         """
