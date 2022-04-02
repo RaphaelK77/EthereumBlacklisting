@@ -26,22 +26,39 @@ class HaircutPolicy(BlacklistPolicy):
             # if any of the sender's ETH is blacklisted, check if any ETH was transferred
             if "ETH" in self.blacklist[sender]:
                 if transaction["value"] > 0:
-                    # transfer taint from sender to receiver
+                    # transfer taint from sender to receiver (no need to check for "all", since ETH is tainted immediately
                     self.transfer_taint(sender, receiver, transaction["value"], "ETH")
             # check if the tx was a smart contract invocation
-            # get all transfers
-            # for each transfer
-            # check if "all" flag is set for either sender or receiver
-            # check if token is in "all"-list
-            # taint get_balance of this token if not
+            if transaction_log["logs"]:
+                # get all transfers
+                transfer_events = self.eth_utils.get_all_events_of_type_in_tx(transaction_log, ["Transfer"])
+
+                # for each transfer
+                for transfer_event in transfer_events:
+                    token = transfer_event["address"]
+                    transfer_sender = transfer_event['args']['from']
+                    transfer_receiver = transfer_event['args']['to']
+
+                    # check if "all" flag is set for either sender or receiver, taint all tokens if necessary
+                    for account in [transfer_sender, transfer_receiver]:
+                        # check if token is in "all"-list
+                        if "all" in self.blacklist[account] and not self.is_eth(token):
+                            # taint entire balance of this token if not
+                            if token not in self.blacklist[account]["all"]:
+                                self.add_to_blacklist(account, self.eth_utils.get_token_balance(account, token, self.current_block), token)
+                                # add token to "all"-list to mark it as done
+                                self.blacklist[account]["all"].append(token)
+
+                    self.transfer_taint(sender, receiver, transfer_event['args']['value'], token)
+
             # TODO: gas fees
 
     def transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str):
+        # check if ETH or WETH, then calculate the amount that should be tainted
         if self.is_eth(currency):
-            taint_proportion = self.blacklist[from_address]["ETH"] / self.get_eth_balance(from_address)
+            taint_proportion = self.blacklist[from_address]["ETH"] / self.get_eth_balance(from_address, self.current_block)
             currency = "ETH"
         else:
-            # TODO: check if current block or last block should be used
             taint_proportion = self.blacklist[from_address][currency] / self.eth_utils.get_token_balance(from_address, currency, self.current_block)
 
         transferred_amount = amount_sent * taint_proportion
@@ -54,12 +71,12 @@ class HaircutPolicy(BlacklistPolicy):
         else:
             return currency in eth_list
 
-    def get_eth_balance(self, address: str):
+    def get_eth_balance(self, address: str, block: int):
         total_balance = 0
         total_balance += self.w3.eth.get_balance(address)
 
         for token in eth_list:
-            total_balance += self.eth_utils.get_token_balance(address, token, self.current_block)
+            total_balance += self.eth_utils.get_token_balance(address, token, block)
 
         return total_balance
 
