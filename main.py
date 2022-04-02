@@ -347,46 +347,6 @@ def get_swap_tokens(contract_address: str):
     return token0, token1
 
 
-def get_all_events_of_type_in_tx(receipt: AttributeDict, event_types: List[str]):
-    """
-    Retrieves all events of the given types from the logs of the given transaction
-
-    :param receipt: transaction receipt
-    :param event_types: the type of the events (Transfer, Swap, Deposit, Withdrawal)
-    :return: dictionary of {log_id: decoded_log}
-    """
-    _log_dict = {}
-
-    for event_type in event_types:
-        checked_addresses = []
-
-        if event_type not in event_abis:
-            logging.error(f"Could not get events of type {event_type} from transaction; type unkown.")
-            continue
-
-        token_contract_abi = event_abis[event_type]
-
-        for log in receipt["logs"]:
-            smart_contract = log["address"]
-            if smart_contract in checked_addresses:
-                continue
-            checked_addresses.append(smart_contract)
-
-            contract_object = w3.eth.contract(address=Web3.toChecksumAddress(smart_contract), abi=token_contract_abi)
-
-            if contract_object is None:
-                logging.warning(f"No ABI found for address {smart_contract}")
-                continue
-
-            # Decode any matching logs
-            decoded_logs = contract_object.events[event_type]().processReceipt(receipt, errors=DISCARD)
-
-            for decoded_log in decoded_logs:
-                _log_dict[str(decoded_log["logIndex"])] = decoded_log
-
-    return _log_dict
-
-
 def get_transaction_logs(receipt: AttributeDict):
     if not isinstance(receipt, AttributeDict):
         raise ValueError(f"Type {type(receipt)} is not a legal argument for get_transaction_logs.")
@@ -458,7 +418,7 @@ def transaction_balance_test(target_account: str):
         if full_transaction["to"] == target_account:
             print(f"Transfer of {full_transaction['value']:,} ETH to {target_account}")
 
-        transfer_events = get_all_events_of_type_in_tx(transaction, ["Transfer"])
+        transfer_events = eth_utils.get_all_events_of_type_in_tx(transaction, ["Transfer"])
         for key in sorted(transfer_events):
             transfer = transfer_events[key]
             sender = transfer['args']['from']
@@ -514,9 +474,10 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    transaction_balance_test('0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D')
+    transaction_balance_test('0x220bdA5c8994804Ac96ebe4DF184d25e5c2196D4')
     # more balance test accounts
-    '0x220bdA5c8994804Ac96ebe4DF184d25e5c2196D4'
+    '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+
     '0x1111111254fb6c44bAC0beD2854e76F90643097d'
 
     shutdown()
@@ -526,7 +487,7 @@ if __name__ == '__main__':
     for tx in w3.eth.get_block_receipts(test_block):
         if tx["logs"]:
             converted_transaction = utils.format_log_dict(tx)
-            log_dict = get_all_events_of_type_in_tx(converted_transaction, ["Swap", "Transfer"])
+            log_dict = eth_utils.get_all_events_of_type_in_tx(converted_transaction, ["Swap", "Transfer"])
             if log_dict:
                 print(f"Transaction: {converted_transaction['transactionHash'].hex()}")
                 print(f"From: \t\t{converted_transaction['from']}")
