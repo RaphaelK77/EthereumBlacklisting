@@ -45,7 +45,7 @@ class Transaction:
 
 class BlacklistPolicy(ABC):
     def __init__(self, w3: Web3):
-        self.blacklist = []
+        self._blacklist = []
         self.w3 = w3
 
     @abstractmethod

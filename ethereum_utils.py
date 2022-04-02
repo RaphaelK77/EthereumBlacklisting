@@ -45,7 +45,7 @@ class EthereumUtils:
 
         :param receipt: transaction receipt
         :param event_types: the type of the events (Transfer, Swap, Deposit, Withdrawal)
-        :return: dictionary of {log_id: decoded_log}
+        :return: list of decoded logs
         """
         log_dict = {}
 
@@ -76,4 +76,4 @@ class EthereumUtils:
                 for decoded_log in decoded_logs:
                     log_dict[str(decoded_log["logIndex"])] = decoded_log
 
-        return log_dict
+        return list(log_dict.values())

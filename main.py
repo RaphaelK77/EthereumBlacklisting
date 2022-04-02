@@ -15,6 +15,7 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from web3.logs import DISCARD
 
 import database as db
+import policy_haircut
 import utils
 from abis import event_abis, function_abis
 from data_structures import Transaction
@@ -448,6 +449,22 @@ def transaction_balance_test(target_account: str):
     return
 
 
+def haircut_policy_test():
+    blacklist_policy = policy_haircut.HaircutPolicy(w3)
+    blacklist_policy.add_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", currency="all", block=test_block)
+    print(blacklist_policy.get_blacklist())
+
+    for transaction_log in w3.eth.get_block_receipts(test_block):
+        transaction_log = utils.format_log_dict(transaction_log)
+
+        full_transaction = w3.eth.get_transaction(transaction_log["transactionHash"])
+
+        blacklist_policy.check_transaction(transaction_log, full_transaction)
+
+    print(blacklist_policy._blacklist)
+    print(blacklist_policy.get_blacklist())
+
+
 if __name__ == '__main__':
     print("")
     logging.info("************ Starting **************")
@@ -474,11 +491,13 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    transaction_balance_test('0x220bdA5c8994804Ac96ebe4DF184d25e5c2196D4')
+    # transaction_balance_test('0x11b815efB8f581194ae79006d24E0d814B7697F6')
     # more balance test accounts
     '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
 
     '0x1111111254fb6c44bAC0beD2854e76F90643097d'
+
+    haircut_policy_test()
 
     shutdown()
 
