@@ -5,7 +5,7 @@ import logging
 from data_structures import BlacklistPolicy
 from ethereum_utils import EthereumUtils
 
-eth_list = ["0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"]
+eth_list = ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"]
 
 
 class HaircutPolicy(BlacklistPolicy):
@@ -31,13 +31,13 @@ class HaircutPolicy(BlacklistPolicy):
             self.write_blacklist()
         self._current_block = transaction["blockNumber"]
 
-        self.tx_log = f"Transaction {transaction['hash'].hex()} | "
+        self._tx_log = f"Transaction {transaction['hash'].hex()} | "
 
         # if any of the sender's ETH is blacklisted, check if any ETH was transferred
         if sender in self._blacklist and "ETH" in self._blacklist[sender]:
             if transaction["value"] > 0:
-                # transfer taint from sender to receiver (no need to check for "all", since ETH is tainted immediately
-                self.transfer_taint(sender, receiver, transaction["value"], "ETH")
+                # transfer taint from sender to receiver (no need to check for "all", since ETH is tainted immediately)
+                self.transfer_taint(from_address=sender, to_address=receiver, amount_sent=transaction["value"], currency="ETH")
 
         # check if the tx was a smart contract invocation
         if transaction_log["logs"]:
@@ -60,25 +60,28 @@ class HaircutPolicy(BlacklistPolicy):
                             self.add_to_blacklist_immediately(address=account, amount=entire_balance, currency=token)
                             # add token to "all"-list to mark it as done
                             self._blacklist[account]["all"].append(token)
-                            logging.info(self.tx_log + f"Tainted entire balance ({entire_balance}) of token {token} for account {account}.")
+                            logging.info(self._tx_log + f"Tainted entire balance ({entire_balance}) of token {token} for account {account}.")
 
                 # skip transfers without a blacklisted sender
+                if self.is_eth(token):
+                    token = "ETH"
                 if transfer_sender in self._blacklist and token in self._blacklist[transfer_sender] and self._blacklist[transfer_sender][token] > 0:
                     self.transfer_taint(transfer_sender, transfer_receiver, transfer_event['args']['value'], token)
 
-        # TODO: gas fees
+                # TODO: gas fees
 
     def write_blacklist(self):
         for operation in self._write_queue:
-            target = operation[0]
-            amount = operation[1]
+            account = operation[0]
+            currency = operation[1]
+            amount = operation[2]
 
-            target += amount
+            self._blacklist[account][currency] += amount
 
             # TODO: delete if 0
 
-    def queue_write(self, target, amount):
-        self._write_queue.append([target, amount])
+    def queue_write(self, account, currency, amount):
+        self._write_queue.append([account, currency, amount])
 
     def transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str):
         # check if ETH or WETH, then calculate the amount that should be tainted
@@ -89,10 +92,10 @@ class HaircutPolicy(BlacklistPolicy):
             taint_proportion = self._blacklist[from_address][currency] / self._eth_utils.get_token_balance(account=from_address, token_address=currency, block=self._current_block)
 
         transferred_amount = amount_sent * taint_proportion
-        self.queue_write(self._blacklist[from_address][currency], -transferred_amount)
+        self.queue_write(from_address, currency, -transferred_amount)
         self.add_to_blacklist(address=to_address, currency=currency, block=self._current_block, amount=transferred_amount)
 
-        logging.info(self.tx_log + f"Transferred {transferred_amount} taint of {currency} from {from_address} to {to_address}")
+        logging.info(self._tx_log + f"Transferred {transferred_amount} taint of {currency} from {from_address} to {to_address}")
 
     def is_eth(self, currency: str):
         if currency == "ETH":
@@ -117,7 +120,7 @@ class HaircutPolicy(BlacklistPolicy):
         :param amount: amount to be removed
         :param currency: token address
         """
-        self.queue_write(self._blacklist[address][currency], -amount)
+        self.queue_write(address, currency, -amount)
 
     def add_to_blacklist(self, address: str, currency: str, block: int, amount: Union[int, float] = -1):
         if address not in self._blacklist:
@@ -131,10 +134,10 @@ class HaircutPolicy(BlacklistPolicy):
             self._blacklist[address]["all"] = []
         else:
             if currency in self._blacklist[address]:
-                self.queue_write(self._blacklist[address][currency], amount)
+                self.queue_write(address, currency, amount)
             else:
                 self._blacklist[address][currency] = 0
-                self.queue_write(self._blacklist[address][currency], amount)
+                self.queue_write(address, currency, amount)
 
     def add_to_blacklist_immediately(self, address: str, currency: str, amount: Union[int, float] = -1):
         if address not in self._blacklist:
@@ -144,17 +147,17 @@ class HaircutPolicy(BlacklistPolicy):
         else:
             self._blacklist[address][currency] = amount
 
-    def add_account_to_blacklist(self, address: str):
+    def add_account_to_blacklist(self, address: str, block: int):
         """
         Add an entire account to the blacklist.
         The account dict will hold under "all" every currency already tainted.
 
+        :param block: block at which the current balance should be blacklisted
         :param address: Ethereum address to blacklist
         """
         if address not in self._blacklist:
             self._blacklist[address] = {"all": []}
-        else:
-            self._blacklist[address]["all"] = []
+        self._blacklist[address]["ETH"] = self.get_eth_balance(address=address, block=block)
 
     def get_blacklisted_amount(self, block):
         pass
