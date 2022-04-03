@@ -89,10 +89,10 @@ class HaircutPolicy(BlacklistPolicy):
                         if currency not in temp_blacklist[account] and currency in self._blacklist[account]:
                             temp_blacklist[account][currency] = self._blacklist[account][currency]
 
+                temp_blacklist = self.temp_transfer(temp_balances, temp_blacklist, transfer_sender, transfer_receiver, currency, amount)
+
                 temp_balances[transfer_sender][currency] -= amount
                 temp_balances[transfer_receiver][currency] += amount
-
-                temp_blacklist = self.temp_transfer(temp_balances, temp_blacklist, transfer_sender, transfer_receiver, currency, amount)
 
             for account in temp_blacklist:
                 for currency in temp_blacklist[account]:
@@ -153,7 +153,7 @@ class HaircutPolicy(BlacklistPolicy):
 
             return total_balance
         else:
-            self._eth_utils.get_token_balance(account=account, token_address=currency, block=block)
+            return self._eth_utils.get_token_balance(account=account, token_address=currency, block=block)
 
     def transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str):
         # check if ETH or WETH, then calculate the amount that should be tainted
