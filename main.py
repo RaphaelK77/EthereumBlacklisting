@@ -480,6 +480,8 @@ def haircut_policy_test_transaction(tx_hash: str):
 
     print(f"Blacklist before writing: {blacklist_policy._blacklist}")
 
+    print(f"Blacklist after writing: {blacklist_policy.get_blacklist()}")
+
 
 if __name__ == '__main__':
     print("")

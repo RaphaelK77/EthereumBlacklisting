@@ -15,7 +15,7 @@ class HaircutPolicy(BlacklistPolicy):
         super().__init__(w3)
         self._blacklist = {}
         self._eth_utils = EthereumUtils(w3)
-        self._current_block = 0
+        self._current_block = -1
         self._write_queue = []
         self._tx_log = ""
         self.logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ class HaircutPolicy(BlacklistPolicy):
         sender = transaction["from"]
         receiver = transaction["to"]
 
-        if transaction["blockNumber"] > self._current_block:
+        if transaction["blockNumber"] > self._current_block >= 0:
             self.logger.debug(f"Writing changes, since transaction block {transaction['blockNumber']} > current block {self._current_block}.")
             # write changes queued up in the last block
             self.write_blacklist()
@@ -67,7 +67,7 @@ class HaircutPolicy(BlacklistPolicy):
                 # check if "all" flag is set for either sender or receiver, taint all tokens if necessary
                 for account in transfer_sender, transfer_receiver:
                     # check if token is in "all"-list
-                    if not currency != "ETH" and account in self._blacklist and "all" in self._blacklist[account]:
+                    if currency != "ETH" and account in self._blacklist and "all" in self._blacklist[account]:
                         # taint entire balance of this token if not
                         if currency not in self._blacklist[account]["all"]:
                             entire_balance = self._eth_utils.get_token_balance(account, currency, self._current_block)
@@ -78,14 +78,21 @@ class HaircutPolicy(BlacklistPolicy):
 
                     # add both to temp balances and blacklist
                     if account not in temp_balances:
-                        temp_balances[account] = self._eth_utils.get_token_balance(account, currency, self._current_block)
-                    if account not in temp_blacklist and account in self._blacklist and currency in self._blacklist[account]:
-                        temp_blacklist[account][currency] = self._blacklist[account][currency]
+                        temp_balances[account] = {}
+                    if currency not in temp_balances[account]:
+                        temp_balances[account][currency] = self._eth_utils.get_token_balance(account, currency, self._current_block)
 
-                temp_balances[sender][currency] -= amount
-                temp_balances[receiver][currency] += amount
+                    # add the account to the temp blacklist if it is on the full blacklist
+                    if account in self._blacklist:
+                        if account not in temp_blacklist:
+                            temp_blacklist[account] = {}
+                        if currency not in temp_blacklist[account] and currency in self._blacklist[account]:
+                            temp_blacklist[account][currency] = self._blacklist[account][currency]
 
-                self.temp_transfer(temp_balances, temp_blacklist, sender, receiver, currency, amount)
+                temp_balances[transfer_sender][currency] -= amount
+                temp_balances[transfer_receiver][currency] += amount
+
+                temp_blacklist = self.temp_transfer(temp_balances, temp_blacklist, transfer_sender, transfer_receiver, currency, amount)
 
             for account in temp_blacklist:
                 for currency in temp_blacklist[account]:
@@ -112,6 +119,8 @@ class HaircutPolicy(BlacklistPolicy):
                 temp_blacklist[receiver][currency] = transferred_amount
             else:
                 temp_blacklist[receiver][currency] += transferred_amount
+
+        return temp_blacklist
 
     def write_blacklist(self):
         for operation in self._write_queue:
