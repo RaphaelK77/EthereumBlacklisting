@@ -1,3 +1,4 @@
+import sys
 from typing import Union
 from web3 import Web3
 import logging
@@ -10,16 +11,20 @@ eth_list = ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"]
 
 class HaircutPolicy(BlacklistPolicy):
 
-    def __init__(self, w3: Web3):
+    def __init__(self, w3: Web3, logging_level=logging.INFO):
         super().__init__(w3)
         self._blacklist = {}
         self._eth_utils = EthereumUtils(w3)
         self._current_block = 0
         self._write_queue = []
         self._tx_log = ""
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging_level)
 
     def get_blacklist(self):
-        self.write_blacklist()
+        if self._write_queue:
+            self.logger.debug("Writing blacklist, because get_blacklist was called.")
+            self.write_blacklist()
         return self._blacklist
 
     def check_transaction(self, transaction_log, transaction):
@@ -27,6 +32,7 @@ class HaircutPolicy(BlacklistPolicy):
         receiver = transaction["to"]
 
         if transaction["blockNumber"] > self._current_block:
+            self.logger.debug(f"Writing changes, since transaction block {transaction['blockNumber']} > current block {self._current_block}.")
             # write changes queued up in the last block
             self.write_blacklist()
         self._current_block = transaction["blockNumber"]
@@ -60,7 +66,7 @@ class HaircutPolicy(BlacklistPolicy):
                             self.add_to_blacklist_immediately(address=account, amount=entire_balance, currency=token)
                             # add token to "all"-list to mark it as done
                             self._blacklist[account]["all"].append(token)
-                            logging.info(self._tx_log + f"Tainted entire balance ({entire_balance}) of token {token} for account {account}.")
+                            self.logger.info(self._tx_log + f"Tainted entire balance ({entire_balance}) of token {token} for account {account}.")
 
                 # skip transfers without a blacklisted sender
                 if self.is_eth(token):
@@ -80,22 +86,30 @@ class HaircutPolicy(BlacklistPolicy):
 
             # TODO: delete if 0
 
+        self._write_queue = []
+        self.logger.debug("Wrote changes to blacklist.")
+
     def queue_write(self, account, currency, amount):
         self._write_queue.append([account, currency, amount])
 
     def transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str):
         # check if ETH or WETH, then calculate the amount that should be tainted
         if self.is_eth(currency):
-            taint_proportion = self._blacklist[from_address]["ETH"] / self.get_eth_balance(from_address, self._current_block)
+            balance = self.get_eth_balance(from_address, self._current_block)
             currency = "ETH"
         else:
-            taint_proportion = self._blacklist[from_address][currency] / self._eth_utils.get_token_balance(account=from_address, token_address=currency, block=self._current_block)
+            balance = self._eth_utils.get_token_balance(account=from_address, token_address=currency, block=self._current_block)
+        if balance == 0:
+            self.logger.error("Balance is 0")
+            exit(-1)
+        taint_proportion = self._blacklist[from_address][currency] / balance
 
         transferred_amount = amount_sent * taint_proportion
         self.queue_write(from_address, currency, -transferred_amount)
         self.add_to_blacklist(address=to_address, currency=currency, block=self._current_block, amount=transferred_amount)
 
-        logging.info(self._tx_log + f"Transferred {transferred_amount} taint of {currency} from {from_address} to {to_address}")
+        self.logger.info(self._tx_log + f"Transferred {transferred_amount:,} taint of {currency} from {from_address} to {to_address}")
+        self.logger.info(self._tx_log + f"Taint proportion was {taint_proportion * 100}% or the sent amount {amount_sent:,}, with a balance of {balance}")
 
     def is_eth(self, currency: str):
         if currency == "ETH":
