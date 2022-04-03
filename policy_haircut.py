@@ -80,7 +80,7 @@ class HaircutPolicy(BlacklistPolicy):
                     if account not in temp_balances:
                         temp_balances[account] = {}
                     if currency not in temp_balances[account]:
-                        temp_balances[account][currency] = self._eth_utils.get_token_balance(account, currency, self._current_block)
+                        temp_balances[account][currency] = self.get_balance(account, currency, self._current_block)
 
                     # add the account to the temp blacklist if it is on the full blacklist
                     if account in self._blacklist:
@@ -143,13 +143,21 @@ class HaircutPolicy(BlacklistPolicy):
     def _queue_write(self, account, currency, amount):
         self._write_queue.append([account, currency, amount])
 
+    def get_balance(self, account, currency, block):
+        if self.is_eth(currency):
+            total_balance = 0
+            total_balance += self.w3.eth.get_balance(account, block_identifier=block)
+
+            for token in eth_list:
+                total_balance += self._eth_utils.get_token_balance(Web3.toChecksumAddress(account), token, block)
+
+            return total_balance
+        else:
+            self._eth_utils.get_token_balance(account=account, token_address=currency, block=block)
+
     def transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str):
         # check if ETH or WETH, then calculate the amount that should be tainted
-        if self.is_eth(currency):
-            balance = self.get_eth_balance(from_address, self._current_block)
-            currency = "ETH"
-        else:
-            balance = self._eth_utils.get_token_balance(account=from_address, token_address=currency, block=self._current_block)
+        balance = self.get_balance(from_address, currency, self._current_block)
         if balance == 0:
             self.logger.error(self._tx_log + "Balance is 0")
             exit(-1)
@@ -167,15 +175,6 @@ class HaircutPolicy(BlacklistPolicy):
             return True
         else:
             return currency in eth_list
-
-    def get_eth_balance(self, address: str, block: int):
-        total_balance = 0
-        total_balance += self.w3.eth.get_balance(address, block_identifier=block)
-
-        for token in eth_list:
-            total_balance += self._eth_utils.get_token_balance(Web3.toChecksumAddress(address), token, block)
-
-        return total_balance
 
     def remove_from_blacklist(self, address: str, amount: Union[int, float], currency: str):
         """
