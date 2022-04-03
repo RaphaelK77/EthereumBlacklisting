@@ -467,6 +467,20 @@ def haircut_policy_test():
         print(f"Blacklist before writing: {blacklist_policy._blacklist}")
 
 
+def haircut_policy_test_transaction(tx_hash: str):
+    blacklist_policy = policy_haircut.HaircutPolicy(w3, logging_level=logging.DEBUG)
+    blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=test_block)
+    print(blacklist_policy.get_blacklist())
+
+    transaction_log = w3.eth.get_transaction_receipt(tx_hash)
+
+    full_transaction = w3.eth.get_transaction(tx_hash)
+
+    blacklist_policy.check_transaction(transaction_log, full_transaction)
+
+    print(f"Blacklist before writing: {blacklist_policy._blacklist}")
+
+
 if __name__ == '__main__':
     print("")
     logging.info("************ Starting **************")
@@ -490,6 +504,7 @@ if __name__ == '__main__':
     # example block and transaction
     test_block = 14394958
     test_tx = "0x7435b60090e0347fc09bb961e02a4dd5baa59ce0ed83de2f0dffca36243d66f9"
+    transfer_test_tx = "0xea2ea4fd6a58cecb2de513bdc8448b8079da9df3dfafd7b01a219b30afdc6ecd"
 
     # ********* TESTING *************
 
@@ -499,7 +514,8 @@ if __name__ == '__main__':
 
     '0x1111111254fb6c44bAC0beD2854e76F90643097d'
 
-    haircut_policy_test()
+    # haircut_policy_test()
+    haircut_policy_test_transaction(transfer_test_tx)
 
     shutdown()
 
