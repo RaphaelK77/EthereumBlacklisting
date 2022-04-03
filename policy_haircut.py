@@ -135,7 +135,13 @@ class HaircutPolicy(BlacklistPolicy):
 
             self._blacklist[account][currency] += amount
 
-            # TODO: delete if 0
+            # delete currency from dict if 0
+            if self._blacklist[account][currency] <= 0:
+                del self._blacklist[account][currency]
+
+                # delete account from dict if no currencies left
+                if not self._blacklist[account]:
+                    del self._blacklist[account]
 
         self._write_queue = []
         self.logger.debug("Wrote changes to blacklist.")
