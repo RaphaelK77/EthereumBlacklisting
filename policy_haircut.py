@@ -1,7 +1,7 @@
-import sys
-from typing import Union
-from web3 import Web3
 import logging
+from typing import Union
+
+from web3 import Web3
 
 from data_structures import BlacklistPolicy
 from ethereum_utils import EthereumUtils
@@ -194,7 +194,7 @@ class HaircutPolicy(BlacklistPolicy):
             # finish all pending write operations; WARNING: will cause issues if done mid-block
             self.write_blacklist()
             # blacklist all ETH
-            self.add_to_blacklist(address=address, currency="ETH", amount=self.get_eth_balance(address=address, block=block), block=block)
+            self.add_to_blacklist(address=address, currency="ETH", amount=self.get_balance(account=address, currency="ETH", block=block), block=block)
             self._blacklist[address]["all"] = []
         else:
             if currency in self._blacklist[address]:
@@ -221,7 +221,7 @@ class HaircutPolicy(BlacklistPolicy):
         """
         if address not in self._blacklist:
             self._blacklist[address] = {"all": []}
-        self._blacklist[address]["ETH"] = self.get_eth_balance(address=address, block=block)
+        self._blacklist[address]["ETH"] = self.get_balance(account=address, currency="ETH", block=block)
 
     def get_blacklisted_amount(self, block):
         pass
