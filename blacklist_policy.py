@@ -27,12 +27,13 @@ class BlacklistPolicy(ABC):
             self.write_blacklist()
         return self._blacklist
 
-    def add_to_blacklist(self, address: str, amount, currency: str):
+    def add_to_blacklist(self, address: str, amount, currency: str, immediately=False):
         """
         Add the specified amount of the given currency to the given account's blacklisted balance.
 
         :param address: Ethereum address
         :param currency: token address
+        :param immediately: if true, write operation will not be queued, but executed immediately
         :param amount: amount to be added
         """
         # add address if not in blacklist
@@ -43,7 +44,10 @@ class BlacklistPolicy(ABC):
         if currency not in self._blacklist[address]:
             self._blacklist[address][currency] = 0
 
-        self._queue_write(address, currency, amount)
+        if immediately:
+            self._blacklist[address][currency] += amount
+        else:
+            self._queue_write(address, currency, amount)
 
     def _queue_write(self, account, currency, amount):
         self._write_queue.append([account, currency, amount])
@@ -80,7 +84,7 @@ class BlacklistPolicy(ABC):
             return address in self._blacklist and currency in self._blacklist[address]
 
     @abstractmethod
-    def get_blacklisted_amount(self, block) -> dict:
+    def get_blacklisted_amount(self, block=None) -> dict:
         pass
 
     def print_blacklisted_amount(self):

@@ -59,7 +59,7 @@ class HaircutPolicy(BlacklistPolicy):
                         # taint entire balance of this token if not
                         if currency not in self._blacklist[account]["all"]:
                             entire_balance = self._eth_utils.get_token_balance(account, currency, self._current_block)
-                            self.add_to_blacklist_immediately(address=account, amount=entire_balance, currency=currency)
+                            self.add_to_blacklist(address=account, amount=entire_balance, currency=currency, immediately=True)
                             # add token to "all"-list to mark it as done
                             self._blacklist[account]["all"].append(currency)
                             self._logger.info(self._tx_log + f"Tainted entire balance ({format(entire_balance, '.2e')}) of token {currency} for account {account}.")
@@ -94,8 +94,6 @@ class HaircutPolicy(BlacklistPolicy):
         if self.is_blacklisted(sender, "ETH"):
             self.check_gas_fees(transaction_log, transaction, block, sender)
 
-        # TODO: testing
-
     def check_gas_fees(self, transaction_log, transaction, block, sender):
         gas_price = transaction["gasPrice"]
         base_fee = block["baseFeePerGas"]
@@ -110,12 +108,23 @@ class HaircutPolicy(BlacklistPolicy):
         tainted_fee = total_fee_paid * taint_proportion
         tainted_fee_to_miner = tainted_fee * proportion_paid_to_miner
 
-        self._queue_write(sender, "ETH", -tainted_fee)
-        self._queue_write(miner, "ETH", tainted_fee_to_miner)
+        self.remove_from_blacklist(sender, amount=tainted_fee, currency="ETH")
+        self.add_to_blacklist(miner, amount=tainted_fee_to_miner, currency="ETH")
 
         self._logger.debug(self._tx_log + f"Fee: Removed {format(tainted_fee, '.2e')} wei taint from {sender}, and transferred {format(tainted_fee_to_miner, '.2e')} wei of which to miner {miner}")
 
     def temp_transfer(self, temp_balances, temp_blacklist, sender, receiver, currency, amount):
+        """
+        Transfer taint from sender to receiver on the temporary blacklist
+
+        :param temp_balances: dict of locally saved temp balances
+        :param temp_blacklist: dict of temporary blacklist
+        :param sender: transaction sender
+        :param receiver: transaction receiver
+        :param currency: Ethereum token address
+        :param amount: total amount sent
+        :return: updated temp_blacklist
+        """
         # if the sender or currency are not blacklisted, nothing happens
         # this assumes the logs are checked in the correct order
         if sender in temp_blacklist and currency in temp_blacklist[sender]:
@@ -144,26 +153,19 @@ class HaircutPolicy(BlacklistPolicy):
         self.add_to_blacklist(address=to_address, amount=transferred_amount, currency=currency)
 
         self._logger.debug(self._tx_log + f"Transferred {format(transferred_amount, '.2e')} taint of {currency} from {from_address} to {to_address}")
-        self._logger.debug(self._tx_log + f"Taint proportion was {format(taint_proportion * 100, '.5f')}% or the sent amount {format(amount_sent, '.2e')}, with a balance of {format(balance, '.2e')}")
-
-    def add_to_blacklist_immediately(self, address: str, currency: str, amount: Union[int, float] = -1):
-        if address not in self._blacklist:
-            self._blacklist[address] = {}
-        if currency in self._blacklist[address]:
-            self._blacklist[address][currency] += amount
-        else:
-            self._blacklist[address][currency] = amount
+        self._logger.debug(self._tx_log + f"Taint proportion was {format(taint_proportion * 100, '.5f')}% of the sent amount {format(amount_sent, '.2e')}, with a balance of {format(balance, '.2e')}")
 
     def add_account_to_blacklist(self, address: str, block: int):
         """
         Add an entire account to the blacklist.
         The account dict will hold under "all" every currency already tainted.
 
-        :param block: block at which the current balance should be blacklisted
         :param address: Ethereum address to blacklist
+        :param block: block at which the current balance should be blacklisted
         """
         # finish all pending write operations; WARNING: will cause issues if done mid-block
         self.write_blacklist()
+
         # add address to blacklist
         if address not in self._blacklist:
             self._blacklist[address] = {}
