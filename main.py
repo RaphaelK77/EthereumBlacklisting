@@ -359,7 +359,8 @@ def haircut_policy_test():
     blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=test_block)
     blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=test_block)
     print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
-    print(f"Amounts: {blacklist_policy.get_blacklisted_amount()}")
+    print("Amounts:")
+    blacklist_policy.print_blacklisted_amount()
 
     # TODO: check if haircut proportions are correct
 
@@ -375,7 +376,8 @@ def haircut_policy_test():
 
     print(f"Final blacklist: {blacklist_policy.get_blacklist()}")
     print(blacklist_policy.get_blacklist_metrics())
-    print(f"Amounts: {blacklist_policy.get_blacklisted_amount()}")
+    print("Amounts:")
+    blacklist_policy.print_blacklisted_amount()
 
 
 def haircut_policy_test_transaction(tx_hash: str):
@@ -399,7 +401,7 @@ if __name__ == '__main__':
     logging.info("************ Starting **************")
 
     eth_getBlockReceipts = RPCEndpoint("eth_getBlockReceipts")
-    # setattr(RPC, "eth_getBlockReceipts", eth_getBlockReceipts)
+
 
     def get_block_receipts(self, block_identifier: BlockIdentifier) -> List[TxReceiptBlock]:
         return self._get_block_receipts(block_identifier)

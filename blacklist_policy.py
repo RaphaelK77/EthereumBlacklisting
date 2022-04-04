@@ -80,8 +80,15 @@ class BlacklistPolicy(ABC):
             return address in self._blacklist and currency in self._blacklist[address]
 
     @abstractmethod
-    def get_blacklisted_amount(self, block):
+    def get_blacklisted_amount(self, block) -> dict:
         pass
+
+    def print_blacklisted_amount(self):
+        blacklisted_amounts = self.get_blacklisted_amount()
+        print("{")
+        for currency in blacklisted_amounts:
+            print(f"\t{currency}:\t{format(blacklisted_amounts[currency], '.5e')},")
+        print("}")
 
     def write_blacklist(self):
         for operation in self._write_queue:

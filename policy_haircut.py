@@ -3,7 +3,7 @@ from typing import Union
 
 from web3 import Web3
 
-from data_structures import BlacklistPolicy
+from blacklist_policy import BlacklistPolicy
 from ethereum_utils import EthereumUtils
 
 
