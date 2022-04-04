@@ -18,7 +18,6 @@ import database as db
 import policy_haircut
 import utils
 from abis import event_abis, function_abis
-from data_structures import Transaction
 from ethereum_utils import EthereumUtils
 from policy_poison import PoisonPolicy
 
@@ -70,52 +69,6 @@ def print_logs(receipt):
     for log in receipt["logs"]:
         print_dict(log)
         print("")
-
-
-def transactions_for_block(block: int) -> list:
-    """
-    Fetches all transactions in a block and returns them as Transaction objects.
-    :param block: block to scan
-    :return: list of transactions
-    """
-    transaction_list = []
-    for _transaction in w3.eth.get_block(block, full_transactions=True)["transactions"]:
-        _transaction = dict(_transaction)
-        db_result = get_contract_name_symbol(_transaction['to'])
-        if db_result:
-            name, symbol = db_result
-            function_sig = get_invoked_function(_transaction)
-            if function_sig:
-                _transaction["function"] = function_sig.fn_name
-            if symbol:
-                _transaction["to_sc"] = f"{name} - {symbol} ({_transaction['to']})"
-            elif name:
-                _transaction["to_sc"] = f"{name} ({_transaction['to']})"
-        _tx = Transaction(_transaction)
-        if _tx.is_swap():
-            _tx.swap_path = get_swap_path(_transaction, block)
-        transaction_list.append(_tx)
-
-    return transaction_list
-
-
-def dict_to_transaction(attribute_dict: AttributeDict) -> Transaction:
-    _transaction = dict(attribute_dict)
-
-    # get name and symbol if the receiver is a smart contract
-    db_result = get_contract_name_symbol(_transaction['to'])
-
-    if db_result:
-        name, symbol = db_result
-        function_sig = get_invoked_function(_transaction)
-        if function_sig:
-            _transaction["function"] = function_sig.fn_name
-        if symbol:
-            _transaction["to"] = f"{name} - {symbol} ({_transaction['to']})"
-        elif name:
-            _transaction["to"] = f"{name} ({_transaction['to']})"
-
-    return Transaction(_transaction)
 
 
 def poison_test():
@@ -525,27 +478,3 @@ if __name__ == '__main__':
 
     shutdown()
 
-    # ------------------ INACTIVE CODE --------------------------
-
-    for tx in w3.eth.get_block_receipts(test_block):
-        if tx["logs"]:
-            converted_transaction = utils.format_log_dict(tx)
-            log_dict = eth_utils.get_all_events_of_type_in_tx(converted_transaction, ["Swap", "Transfer"])
-            if log_dict:
-                print(f"Transaction: {converted_transaction['transactionHash'].hex()}")
-                print(f"From: \t\t{converted_transaction['from']}")
-                print(f"To: \t\t{converted_transaction['to']}")
-                for key in log_dict:
-                    if log_dict[key]["event"] == "Transfer":
-                        print("Transfer")
-                        print(f"Sender: \t{log_dict[key]['args']['from']}")
-                        print(f"Amount: \t{log_dict[key]['args']['value']}")
-                    elif log_dict[key]["event"] == "Swap":
-                        print("Swap")
-                        print(f"Sender: \t{log_dict[key]['args']['sender']}")
-                        print(
-                            f"amount0in: {log_dict[key]['args']['amount0In']}, amount1in: {log_dict[key]['args']['amount1In']}, amount0out: {log_dict[key]['args']['amount0Out']}, amount1out: {log_dict[key]['args']['amount1Out']}")
-                    print(f"Receiver: \t{log_dict[key]['args']['to']}")
-
-                    print("")
-            break
