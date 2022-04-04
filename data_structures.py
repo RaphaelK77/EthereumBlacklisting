@@ -2,6 +2,7 @@ import logging
 import time
 from abc import abstractmethod, ABC
 
+from typing import Optional
 from web3 import Web3
 from web3 import constants
 
@@ -45,7 +46,7 @@ class Transaction:
 
 class BlacklistPolicy(ABC):
     def __init__(self, w3: Web3):
-        self._blacklist = []
+        self._blacklist = {}
         self.w3 = w3
 
     @abstractmethod
@@ -57,6 +58,7 @@ class BlacklistPolicy(ABC):
         pass
 
     def propagate_blacklist(self, start_block, block_amount):
+        # TODO: change to use get_block_receipts
         start_time = time.time()
 
         if block_amount < 50000:
@@ -79,6 +81,12 @@ class BlacklistPolicy(ABC):
 
         end_time = time.time()
         logging.info(f"Propagation complete. Total time: {format(end_time - start_time, '.2f')}s, performance: {format(block_amount / (end_time - start_time), '.0f')} blocks/s")
+
+    def is_blacklisted(self, address: str, currency: Optional[str] = None):
+        if currency is None:
+            return address in self._blacklist
+        else:
+            return address in self._blacklist and currency in self._blacklist[address]
 
     @abstractmethod
     def get_blacklisted_amount(self, block):

@@ -13,7 +13,6 @@ class HaircutPolicy(BlacklistPolicy):
 
     def __init__(self, w3: Web3, logging_level=logging.INFO):
         super().__init__(w3)
-        self._blacklist = {}
         self._eth_utils = EthereumUtils(w3)
         self._current_block = -1
         self._write_queue = []
@@ -103,8 +102,10 @@ class HaircutPolicy(BlacklistPolicy):
                     else:
                         self._queue_write(account, currency, temp_blacklist[account][currency])
 
+            if self.is_blacklisted(sender, "ETH"):
+                self.check_gas_fees(transaction_log, transaction, block, sender)
+
             # TODO: testing
-            self.check_gas_fees(transaction_log, transaction, block, sender)
 
     def check_gas_fees(self, transaction_log, transaction, block, sender):
         gas_price = transaction["gasPrice"]

@@ -452,6 +452,7 @@ def transaction_balance_test(target_account: str):
 def haircut_policy_test():
     blacklist_policy = policy_haircut.HaircutPolicy(w3, logging_level=logging.DEBUG)
     blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=test_block)
+    blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=test_block)
     print(blacklist_policy.get_blacklist())
 
     # TODO: check if haircut proportions are correct
