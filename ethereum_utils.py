@@ -36,6 +36,8 @@ class EthereumUtils:
             balance = contract.functions.balanceOf(account).call({}, block)
         except web3.exceptions.BadFunctionCallOutput:
             balance = -1
+        except web3.exceptions.ContractLogicError:
+            balance = -2
 
         return balance
 

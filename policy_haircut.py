@@ -119,6 +119,8 @@ class HaircutPolicy(BlacklistPolicy):
         balance = self._eth_utils.get_balance(account, currency, block)
         if balance == -1:
             self._logger.warning(self._tx_log + f"Balance for token {currency} and account {account} could not be retrieved.")
+        if balance == -2:
+            self._logger.warning(self._tx_log + f"Balance of account {account} for token {currency} could not be retrieved. The smart contract does not support 'balanceOf'.")
         return balance
 
     def check_gas_fees(self, transaction_log, transaction, block, sender):
