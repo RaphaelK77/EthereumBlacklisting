@@ -1,5 +1,5 @@
 import logging
-from typing import Union
+from typing import Union, Set
 
 from web3 import Web3
 
@@ -245,8 +245,13 @@ class HaircutPolicy(BlacklistPolicy):
         :param block: block at which the current balance should be blacklisted
         :param address: Ethereum address to blacklist
         """
+        # add address to blacklist
         if address not in self._blacklist:
-            self._blacklist[address] = {"all": []}
+            self._blacklist[address] = {}
+        # set all flag or clear it
+        self._blacklist[address]["all"] = []
+
+        # blacklist all ETH
         eth_balance = self.get_balance(account=address, currency="ETH", block=block)
         self._blacklist[address]["ETH"] = eth_balance
 
@@ -257,5 +262,14 @@ class HaircutPolicy(BlacklistPolicy):
 
     def get_blacklist_metrics(self):
         result = {}
+
         result["UniqueTaintedAccounts"] = len(self._blacklist)
+
+        currencies = set()
+        for account in self._blacklist:
+            for currency in self._blacklist[account].keys():
+                currencies.add(currency)
+
+        result["UniqueCurrencies"] = len(currencies)
+
         return result

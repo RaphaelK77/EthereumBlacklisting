@@ -358,7 +358,7 @@ def haircut_policy_test():
 
     # TODO: check if haircut proportions are correct
 
-    for block in range(test_block, test_block+11):
+    for block in range(test_block, test_block + 11):
         full_block = w3.eth.get_block(block)
 
         for transaction_log in w3.eth.get_block_receipts(block):
@@ -414,7 +414,6 @@ if __name__ == '__main__':
 
     transfer_test_tx = "0xea2ea4fd6a58cecb2de513bdc8448b8079da9df3dfafd7b01a219b30afdc6ecd"
 
-
     # ********* TESTING *************
 
     # transaction_balance_test('0x11b815efB8f581194ae79006d24E0d814B7697F6')
@@ -427,4 +426,3 @@ if __name__ == '__main__':
     # haircut_policy_test_transaction(transfer_test_tx)
 
     shutdown()
-
