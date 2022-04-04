@@ -73,14 +73,14 @@ class BlacklistPolicy(ABC):
             for transaction, transaction_log in zip(transactions, receipts):
                 self.check_transaction(transaction_log=transaction_log, transaction=transaction, full_block=full_block)
 
-            if i % interval == 0 and i - start_block > 0:
+            if (i - start_block) % interval == 0 and i - start_block > 0:
                 blocks_scanned = i - start_block
                 elapsed_time = time.time() - start_time
                 blocks_remaining = block_amount - blocks_scanned
                 logging.info(
                     f"{blocks_scanned} ({format(blocks_scanned / block_amount * 100, '.2f')})% blocks scanned, " +
                     f" {format(elapsed_time, '.2f')}s elapsed ({utils.format_seconds_as_time(blocks_remaining * (elapsed_time / blocks_scanned))} remaining, " +
-                    f" {format(blocks_scanned / elapsed_time, '.0f')} blocks/s).")
+                    f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min).")
 
         end_time = time.time()
         logging.info(f"Propagation complete. Total time: {format(end_time - start_time, '.2f')}s, performance: {format(block_amount / (end_time - start_time), '.0f')} blocks/s")
