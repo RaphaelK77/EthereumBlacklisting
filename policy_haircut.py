@@ -55,8 +55,12 @@ class HaircutPolicy(BlacklistPolicy):
                     if currency != "ETH" and self.is_blacklisted(address=account, currency="all"):
                         # taint entire balance of this token if not
                         if currency not in self._blacklist[account]["all"]:
-                            entire_balance = self._eth_utils.get_token_balance(account, currency, self._current_block)
-                            self.add_to_blacklist(address=account, amount=entire_balance, currency=currency, immediately=True)
+                            entire_balance = self.get_balance(account, currency, self._current_block)
+                            # no need to add the token to the blacklist if the balance is 0
+                            if entire_balance > 0:
+                                self.add_to_blacklist(address=account, amount=entire_balance, currency=currency, immediately=True)
+                            elif entire_balance == -1:
+                                self._logger.warning(self._tx_log + f"Balance for token {currency} and account {account} could not be retrieved.")
                             # add token to "all"-list to mark it as done
                             self._blacklist[account]["all"].append(currency)
                             self._logger.info(self._tx_log + f"Tainted entire balance ({format(entire_balance, '.2e')}) of token {currency} for account {account}.")
@@ -65,7 +69,7 @@ class HaircutPolicy(BlacklistPolicy):
                     if account not in temp_balances:
                         temp_balances[account] = {}
                     if currency not in temp_balances[account]:
-                        temp_balances[account][currency] = self._eth_utils.get_balance(account, currency, self._current_block)
+                        temp_balances[account][currency] = self.get_balance(account, currency, self._current_block)
 
                     # add the account to the temp blacklist if it is on the full blacklist
                     if self.is_blacklisted(account):
@@ -95,6 +99,12 @@ class HaircutPolicy(BlacklistPolicy):
         if self.is_blacklisted(sender, "ETH"):
             self.check_gas_fees(transaction_log, transaction, full_block, sender)
 
+    def get_balance(self, account, currency, block):
+        balance = self._eth_utils.get_balance(account, currency, block)
+        if balance == -1:
+            self._logger.warning(self._tx_log + f"Balance for token {currency} and account {account} could not be retrieved.")
+        return balance
+
     def check_gas_fees(self, transaction_log, transaction, block, sender):
         gas_price = transaction["gasPrice"]
         base_fee = block["baseFeePerGas"]
@@ -105,7 +115,7 @@ class HaircutPolicy(BlacklistPolicy):
         paid_to_miner = (gas_price - base_fee) * gas_used
         proportion_paid_to_miner = paid_to_miner / total_fee_paid
 
-        taint_proportion = self._blacklist[sender]["ETH"] / self._eth_utils.get_balance(sender, "ETH", self._current_block)
+        taint_proportion = self._blacklist[sender]["ETH"] / self.get_balance(sender, "ETH", self._current_block)
         tainted_fee = total_fee_paid * taint_proportion
         tainted_fee_to_miner = tainted_fee * proportion_paid_to_miner
 
@@ -143,7 +153,7 @@ class HaircutPolicy(BlacklistPolicy):
 
     def transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str):
         # check if ETH or WETH, then calculate the amount that should be tainted
-        balance = self._eth_utils.get_balance(from_address, currency, self._current_block)
+        balance = self.get_balance(from_address, currency, self._current_block)
         if balance == 0:
             self._logger.error(self._tx_log + "Balance is 0")
             exit(-1)
@@ -174,7 +184,7 @@ class HaircutPolicy(BlacklistPolicy):
         self._blacklist[address]["all"] = []
 
         # blacklist all ETH
-        eth_balance = self._eth_utils.get_balance(account=address, currency="ETH", block=block)
+        eth_balance = self.get_balance(account=address, currency="ETH", block=block)
         self._blacklist[address]["ETH"] = eth_balance
 
         self._logger.info(f"Blacklisted entire balance of {format(eth_balance, '.2e')} wei (ETH) of account {address}")

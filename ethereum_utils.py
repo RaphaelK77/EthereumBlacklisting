@@ -14,7 +14,7 @@ class EthereumUtils:
         self.w3 = w3
         self.eth_list = ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"]
 
-    def get_token_balance(self, account: str, token_address: str, block: int = None):
+    def _get_token_balance(self, account: str, token_address: str, block: int = None):
         """
         Retrieves the token balance of the given account at the given block
 
@@ -35,7 +35,6 @@ class EthereumUtils:
         try:
             balance = contract.functions.balanceOf(account).call({}, block)
         except web3.exceptions.BadFunctionCallOutput:
-            logging.warning(f"BalanceOf function for token smart contract at {token_address} could not be executed.")
             balance = -1
 
         return balance
@@ -46,11 +45,11 @@ class EthereumUtils:
             total_balance += self.w3.eth.get_balance(account, block_identifier=block)
 
             for token in self.eth_list:
-                total_balance += self.get_token_balance(Web3.toChecksumAddress(account), token, block)
+                total_balance += self._get_token_balance(Web3.toChecksumAddress(account), token, block)
 
             return total_balance
         else:
-            return self.get_token_balance(account=account, token_address=currency, block=block)
+            return self._get_token_balance(account=account, token_address=currency, block=block)
 
     def is_eth(self, currency: str):
         if currency == "ETH":
