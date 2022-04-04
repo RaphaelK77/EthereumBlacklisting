@@ -355,14 +355,17 @@ def get_transaction_logs(receipt: AttributeDict):
 
 
 def haircut_policy_test():
-    blacklist_policy = policy_haircut.HaircutPolicy(w3, logging_level=logging.DEBUG)
+    blacklist_policy = policy_haircut.HaircutPolicy(w3, logging_level=logging.INFO)
     blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=test_block)
     blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=test_block)
     print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
     print("Amounts:")
     blacklist_policy.print_blacklisted_amount()
 
-    # TODO: check if haircut proportions are correct
+    blacklist_policy.propagate_blacklist(test_block, 100)
+
+    if 1 != 2/1:
+        return
 
     for block in range(test_block, test_block + 11):
         full_block = w3.eth.get_block(block)
@@ -404,7 +407,7 @@ if __name__ == '__main__':
 
 
     def get_block_receipts(self, block_identifier: BlockIdentifier) -> List[TxReceiptBlock]:
-        return self._get_block_receipts(block_identifier)
+        return [utils.format_log_dict(log) for log in self._get_block_receipts(block_identifier)]
 
 
     _get_block_receipts: Method[Callable[[BlockIdentifier], List[TxReceiptBlock]]] = Method(
