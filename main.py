@@ -350,58 +350,6 @@ def get_transaction_logs(receipt: AttributeDict):
     return _log_dict
 
 
-def add_to_acc_dict(acc_dict: dict, account: str, transaction):
-    if account not in acc_dict:
-        acc_dict[account] = []
-
-    acc_dict[account].append(transaction)
-
-
-def transaction_balance_test(target_account: str):
-    account_dict = {}
-
-    for transaction in w3.eth.get_block_receipts(test_block):
-
-        transaction = utils.format_log_dict(transaction)
-        if not is_contract(w3.toChecksumAddress(transaction["to"])):
-            continue
-
-        block_number = transaction["blockNumber"]
-        full_transaction = w3.eth.get_transaction(transaction["transactionHash"])
-
-        if full_transaction["to"] == target_account:
-            print(f"Transfer of {full_transaction['value']:,} ETH to {target_account}")
-
-        transfer_events = eth_utils.get_all_events_of_type_in_tx(transaction, ["Transfer"])
-        for key in sorted(transfer_events):
-            transfer = transfer_events[key]
-            sender = transfer['args']['from']
-            receiver = transfer["args"]["to"]
-            token_address = transfer['address']
-            add_to_acc_dict(account_dict, sender, transfer)
-            add_to_acc_dict(account_dict, receiver, transfer)
-
-            # if sender == "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45":
-            #    total_balance -= transfer['args']['value']
-            # elif receiver == "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45":
-            #    total_balance += transfer['args']['value']
-            # else:
-            #    continue
-
-            if sender == target_account or receiver == target_account:
-                before = eth_utils.get_token_balance(sender, token_address, block_number)
-                print(f"Sender balance before: {before:,}")
-                print(f"Transfer of {transfer['args']['value']:,} in currency {token_address} {get_contract_name_symbol(token_address)} from {sender} to {transfer['args']['to']} " +
-                      f"(transaction {transfer['transactionHash'].hex()})")
-                after = eth_utils.get_token_balance(sender, token_address, block_number + 1)
-                difference = after - before
-                print(f"Sender balance after: {after:,}")
-                print(f"Difference: {difference:,}")
-                print("")
-
-    return
-
-
 def haircut_policy_test():
     blacklist_policy = policy_haircut.HaircutPolicy(w3, logging_level=logging.DEBUG)
     blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=test_block)
