@@ -13,6 +13,7 @@ class BlacklistPolicy(ABC):
         self._blacklist = {}
         """ Dictionary of blacklisted accounts, with a sub-dictionary of the blacklisted currencies of these accounts """
         self.w3 = w3
+        """ Web3 instance """
         self._write_queue = []
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(logging_level)

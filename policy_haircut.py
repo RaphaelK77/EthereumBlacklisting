@@ -28,21 +28,19 @@ class HaircutPolicy(BlacklistPolicy):
         self._tx_log = f"Transaction {transaction['hash'].hex()} | "
 
         # if any of the sender's ETH is blacklisted, check if any ETH was transferred
-        if sender in self._blacklist and "ETH" in self._blacklist[sender]:
-            if transaction["value"] > 0:
-                # transfer taint from sender to receiver (no need to check for "all", since ETH is tainted immediately)
-                self.transfer_taint(from_address=sender, to_address=receiver, amount_sent=transaction["value"], currency="ETH")
+        if sender in self._blacklist and "ETH" in self._blacklist[sender] and transaction["value"] > 0:
+            # transfer taint from sender to receiver (no need to check for "all", since ETH is tainted immediately)
+            self.transfer_taint(from_address=sender, to_address=receiver, amount_sent=transaction["value"], currency="ETH")
 
         # if the tx was a smart contract invocation
         if transaction_log["logs"]:
             # get all transfers
             transfer_events = self._eth_utils.get_all_events_of_type_in_tx(transaction_log, ["Transfer"])
 
-            # dicts to store a local balance and the temporary blacklisting status while processing the transaction
+            # dicts to store a local balance and the temporary blacklisting status while processing the transaction logs
             temp_balances = {}
             temp_blacklist = {}
 
-            # for each transfer
             for transfer_event in transfer_events:
                 currency = transfer_event["address"]
                 transfer_sender = transfer_event['args']['from']
@@ -52,10 +50,9 @@ class HaircutPolicy(BlacklistPolicy):
                 if self._eth_utils.is_eth(currency):
                     currency = "ETH"
 
-                # check if "all" flag is set for either sender or receiver, taint all tokens if necessary
                 for account in transfer_sender, transfer_receiver:
-                    # check if token is in "all"-list
-                    if currency != "ETH" and account in self._blacklist and "all" in self._blacklist[account]:
+                    # check if "all" flag is set for either sender or receiver, taint all tokens if necessary
+                    if currency != "ETH" and self.is_blacklisted(address=account, currency="all"):
                         # taint entire balance of this token if not
                         if currency not in self._blacklist[account]["all"]:
                             entire_balance = self._eth_utils.get_token_balance(account, currency, self._current_block)
@@ -64,24 +61,27 @@ class HaircutPolicy(BlacklistPolicy):
                             self._blacklist[account]["all"].append(currency)
                             self._logger.info(self._tx_log + f"Tainted entire balance ({format(entire_balance, '.2e')}) of token {currency} for account {account}.")
 
-                    # add both to temp balances and blacklist
+                    # add the account to temp balances
                     if account not in temp_balances:
                         temp_balances[account] = {}
                     if currency not in temp_balances[account]:
                         temp_balances[account][currency] = self._eth_utils.get_balance(account, currency, self._current_block)
 
                     # add the account to the temp blacklist if it is on the full blacklist
-                    if account in self._blacklist:
+                    if self.is_blacklisted(account):
                         if account not in temp_blacklist:
                             temp_blacklist[account] = {}
-                        if currency not in temp_blacklist[account] and currency in self._blacklist[account]:
+                        if currency not in temp_blacklist[account] and self.is_blacklisted(address=account, currency=currency):
                             temp_blacklist[account][currency] = self._blacklist[account][currency]
 
+                # update temp blacklist with the current transfer
                 temp_blacklist = self.temp_transfer(temp_balances, temp_blacklist, transfer_sender, transfer_receiver, currency, amount)
 
+                # update temp balances with the amount sent in the current transfer
                 temp_balances[transfer_sender][currency] -= amount
                 temp_balances[transfer_receiver][currency] += amount
 
+            # once the transfer has been processed, execute all resulting changes
             for account in temp_blacklist:
                 for currency in temp_blacklist[account]:
                     if account in self._blacklist and currency in self._blacklist[account]:
@@ -91,6 +91,7 @@ class HaircutPolicy(BlacklistPolicy):
                     else:
                         self._queue_write(account, currency, temp_blacklist[account][currency])
 
+        # if the sender has any blacklisted ETH, taint the paid gas fees
         if self.is_blacklisted(sender, "ETH"):
             self.check_gas_fees(transaction_log, transaction, block, sender)
 
