@@ -56,14 +56,14 @@ class HaircutPolicy(BlacklistPolicy):
                         # taint entire balance of this token if not
                         if currency not in self._blacklist[account]["all"]:
                             entire_balance = self.get_balance(account, currency, self._current_block)
+                            # add token to "all"-list to mark it as done
+                            self._blacklist[account]["all"].append(currency)
                             # do not add the token to the blacklist if the balance is 0, 0-values in the blacklist can lead to issues
                             if entire_balance > 0:
                                 self.add_to_blacklist(address=account, amount=entire_balance, currency=currency, immediately=True)
+                                self._logger.info(self._tx_log + f"Tainted entire balance ({format(entire_balance, '.2e')}) of token {currency} for account {account}.")
                             elif entire_balance == -1:
                                 self._logger.warning(self._tx_log + f"Balance for token {currency} and account {account} could not be retrieved.")
-                            # add token to "all"-list to mark it as done
-                            self._blacklist[account]["all"].append(currency)
-                            self._logger.info(self._tx_log + f"Tainted entire balance ({format(entire_balance, '.2e')}) of token {currency} for account {account}.")
 
                     # add the account to temp balances
                     if account not in temp_balances:
