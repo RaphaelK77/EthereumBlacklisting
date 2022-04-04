@@ -468,6 +468,7 @@ def haircut_policy_test():
             blacklist_policy.check_transaction(transaction_log, full_transaction, full_block)
 
     print(f"Final blacklist: {blacklist_policy.get_blacklist()}")
+    print(blacklist_policy.get_blacklist_metrics())
 
 
 def haircut_policy_test_transaction(tx_hash: str):

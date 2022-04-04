@@ -47,6 +47,7 @@ class Transaction:
 class BlacklistPolicy(ABC):
     def __init__(self, w3: Web3):
         self._blacklist = {}
+        """ Dictionary of blacklisted accounts, with a sub-dictionary of the blacklisted currencies of these accounts """
         self.w3 = w3
 
     @abstractmethod

@@ -254,3 +254,8 @@ class HaircutPolicy(BlacklistPolicy):
 
     def get_blacklisted_amount(self, block):
         pass
+
+    def get_blacklist_metrics(self):
+        result = {}
+        result["UniqueTaintedAccounts"] = len(self._blacklist)
+        return result
