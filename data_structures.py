@@ -1,7 +1,7 @@
 import logging
 import time
 from abc import abstractmethod, ABC
-from typing import Optional
+from typing import Optional, Union
 
 from web3 import Web3
 
@@ -9,18 +9,44 @@ import utils
 
 
 class BlacklistPolicy(ABC):
-    def __init__(self, w3: Web3):
+    def __init__(self, w3: Web3, logging_level=logging.INFO):
         self._blacklist = {}
         """ Dictionary of blacklisted accounts, with a sub-dictionary of the blacklisted currencies of these accounts """
         self.w3 = w3
+        self._write_queue = []
+        self._logger = logging.getLogger(__name__)
+        self._logger.setLevel(logging_level)
 
     @abstractmethod
     def check_transaction(self, transaction_log, transaction, block):
         pass
 
-    @abstractmethod
-    def add_to_blacklist(self, address: str, amount, currency: str, block: int):
-        pass
+    def get_blacklist(self):
+        if self._write_queue:
+            self._logger.debug("Writing blacklist, because get_blacklist was called.")
+            self.write_blacklist()
+        return self._blacklist
+
+    def add_to_blacklist(self, address: str, amount, currency: str):
+        """
+        Add the specified amount of the given currency to the given account's blacklisted balance.
+
+        :param address: Ethereum address
+        :param currency: token address
+        :param amount: amount to be added
+        """
+        # add address if not in blacklist
+        if address not in self._blacklist:
+            self._blacklist[address] = {}
+
+        # add currency to address if not in blacklist
+        if currency not in self._blacklist[address]:
+            self._blacklist[address][currency] = 0
+
+        self._queue_write(address, currency, amount)
+
+    def _queue_write(self, account, currency, amount):
+        self._write_queue.append([account, currency, amount])
 
     def propagate_blacklist(self, start_block, block_amount):
         # TODO: change to use get_block_receipts
@@ -56,3 +82,37 @@ class BlacklistPolicy(ABC):
     @abstractmethod
     def get_blacklisted_amount(self, block):
         pass
+
+    def write_blacklist(self):
+        for operation in self._write_queue:
+            account = operation[0]
+            currency = operation[1]
+            amount = operation[2]
+
+            if account not in self._blacklist:
+                self._blacklist[account] = {}
+            if currency not in self._blacklist[account]:
+                self._blacklist[account][currency] = 0
+
+            self._blacklist[account][currency] += amount
+
+            # delete currency from dict if 0
+            if self._blacklist[account][currency] <= 0:
+                del self._blacklist[account][currency]
+
+                # delete account from dict if no currencies left
+                if not self._blacklist[account]:
+                    del self._blacklist[account]
+
+        self._write_queue = []
+        self._logger.debug("Wrote changes to blacklist.")
+
+    def remove_from_blacklist(self, address: str, amount: Union[int, float], currency: str):
+        """
+        Remove the specified amount of the given currency from the given account's blacklisted balance.
+
+        :param address: Ethereum address
+        :param amount: amount to be removed
+        :param currency: token address
+        """
+        self._queue_write(address, currency, -amount)
