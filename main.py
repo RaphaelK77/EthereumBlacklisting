@@ -5,14 +5,18 @@ from json import JSONDecodeError
 
 import requests
 import web3.constants
-from typing import Union, List, Tuple, Optional
+from typing import Union, List, Tuple, Optional, Callable
 
 from hexbytes import HexBytes
 from web3 import Web3
 from web3 import constants
+from web3._utils.rpc_abi import RPC
 from web3.datastructures import AttributeDict
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from web3.logs import DISCARD
+from web3.method import Method, default_root_munger
+from web3.types import BlockIdentifier, TxReceiptBlock, RPCEndpoint
+from web3.eth import Eth, BaseEth
 
 import database as db
 import policy_haircut
@@ -355,6 +359,7 @@ def haircut_policy_test():
     blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=test_block)
     blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=test_block)
     print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
+    print(f"Amounts: {blacklist_policy.get_blacklisted_amount()}")
 
     # TODO: check if haircut proportions are correct
 
@@ -392,6 +397,20 @@ def haircut_policy_test_transaction(tx_hash: str):
 if __name__ == '__main__':
     print("")
     logging.info("************ Starting **************")
+
+    eth_getBlockReceipts = RPCEndpoint("eth_getBlockReceipts")
+    # setattr(RPC, "eth_getBlockReceipts", eth_getBlockReceipts)
+
+    def get_block_receipts(self, block_identifier: BlockIdentifier) -> List[TxReceiptBlock]:
+        return self._get_block_receipts(block_identifier)
+
+
+    _get_block_receipts: Method[Callable[[BlockIdentifier], List[TxReceiptBlock]]] = Method(
+        eth_getBlockReceipts,
+        mungers=[default_root_munger], )
+
+    setattr(Eth, "get_block_receipts", get_block_receipts)
+    setattr(BaseEth, "_get_block_receipts", _get_block_receipts)
 
     # setup web3
     w3_local = Web3(local_provider)
