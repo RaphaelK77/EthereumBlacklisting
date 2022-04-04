@@ -411,6 +411,7 @@ if __name__ == '__main__':
     # example block and transaction
     test_block = 14394958
     test_tx = "0x7435b60090e0347fc09bb961e02a4dd5baa59ce0ed83de2f0dffca36243d66f9"
+
     transfer_test_tx = "0xea2ea4fd6a58cecb2de513bdc8448b8079da9df3dfafd7b01a219b30afdc6ecd"
 
     # ********* TESTING *************
