@@ -176,8 +176,18 @@ class HaircutPolicy(BlacklistPolicy):
 
         self._logger.info(f"Blacklisted entire balance of {format(eth_balance, '.2e')} wei (ETH) of account {address}")
 
-    def get_blacklisted_amount(self, block):
-        pass
+    def get_blacklisted_amount(self, block=None):
+        amounts = {}
+
+        for account in self._blacklist:
+            for currency in self._blacklist[account].keys():
+                if currency != "all":
+                    if currency not in amounts:
+                        amounts[currency] = self._blacklist[account][currency]
+                    else:
+                        amounts[currency] += self._blacklist[account][currency]
+
+        return amounts
 
     def get_blacklist_metrics(self):
         result = {}
@@ -185,9 +195,11 @@ class HaircutPolicy(BlacklistPolicy):
         currencies = set()
         for account in self._blacklist:
             for currency in self._blacklist[account].keys():
-                currencies.add(currency)
+                if currency != "all":
+                    currencies.add(currency)
 
         result["UniqueCurrencies"] = len(currencies)
+        result["Currencies"] = currencies
 
         result["UniqueTaintedAccounts"] = len(self._blacklist)
 

@@ -19,7 +19,7 @@ class PoisonPolicy(BlacklistPolicy):
         # TODO: transfers
 
         if sender in self.blacklist and receiver is not None:
-            self.add_to_blacklist(receiver,,
+            self.add_account_to_blacklist(receiver)
             if logging_enabled:
                 logging.info(f"Sender {sender} ({self.blacklist.index(sender) + 1}) is on blacklist, adding receiver {receiver} ({self.blacklist.index(receiver) + 1}).")
 

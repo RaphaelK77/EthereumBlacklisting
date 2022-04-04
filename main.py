@@ -370,6 +370,7 @@ def haircut_policy_test():
 
     print(f"Final blacklist: {blacklist_policy.get_blacklist()}")
     print(blacklist_policy.get_blacklist_metrics())
+    print(f"Amounts: {blacklist_policy.get_blacklisted_amount()}")
 
 
 def haircut_policy_test_transaction(tx_hash: str):
