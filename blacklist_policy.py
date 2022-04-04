@@ -19,7 +19,7 @@ class BlacklistPolicy(ABC):
         self._logger.setLevel(logging_level)
 
     @abstractmethod
-    def check_transaction(self, transaction_log, transaction, block):
+    def check_transaction(self, transaction_log, transaction, full_block):
         pass
 
     def get_blacklist(self):
@@ -54,18 +54,25 @@ class BlacklistPolicy(ABC):
         self._write_queue.append([account, currency, amount])
 
     def propagate_blacklist(self, start_block, block_amount):
-        # TODO: change to use get_block_receipts
         start_time = time.time()
 
-        if block_amount < 50000:
+        if block_amount < 500:
+            interval = 10
+        elif block_amount < 5000:
+            interval = 100
+        elif block_amount < 50000:
             interval = 1000
         else:
             interval = 10000
 
         for i in range(start_block, start_block + block_amount):
-            transactions = self.w3.eth.get_block(i, full_transactions=True)["transactions"]
-            if transactions:
-                [self.check_transaction(t, None, None) for t in transactions]
+            full_block = self.w3.eth.get_block(i, full_transactions=True)
+            transactions = full_block["transactions"]
+            receipts = self.w3.eth.get_block_receipts(i)
+
+            for transaction, transaction_log in zip(transactions, receipts):
+                self.check_transaction(transaction_log=transaction_log, transaction=transaction, full_block=full_block)
+
             if i % interval == 0 and i - start_block > 0:
                 blocks_scanned = i - start_block
                 elapsed_time = time.time() - start_time

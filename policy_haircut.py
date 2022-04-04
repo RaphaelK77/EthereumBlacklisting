@@ -15,7 +15,7 @@ class HaircutPolicy(BlacklistPolicy):
         self._current_block = -1
         self._tx_log = ""
 
-    def check_transaction(self, transaction_log, transaction, block):
+    def check_transaction(self, transaction_log, transaction, full_block):
         sender = transaction["from"]
         receiver = transaction["to"]
 
@@ -93,7 +93,7 @@ class HaircutPolicy(BlacklistPolicy):
 
         # if the sender has any blacklisted ETH, taint the paid gas fees
         if self.is_blacklisted(sender, "ETH"):
-            self.check_gas_fees(transaction_log, transaction, block, sender)
+            self.check_gas_fees(transaction_log, transaction, full_block, sender)
 
     def check_gas_fees(self, transaction_log, transaction, block, sender):
         gas_price = transaction["gasPrice"]
