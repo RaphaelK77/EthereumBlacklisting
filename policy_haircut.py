@@ -102,10 +102,10 @@ class HaircutPolicy(BlacklistPolicy):
                     else:
                         self._queue_write(account, currency, temp_blacklist[account][currency])
 
-            if self.is_blacklisted(sender, "ETH"):
-                self.check_gas_fees(transaction_log, transaction, block, sender)
+        if self.is_blacklisted(sender, "ETH"):
+            self.check_gas_fees(transaction_log, transaction, block, sender)
 
-            # TODO: testing
+        # TODO: testing
 
     def check_gas_fees(self, transaction_log, transaction, block, sender):
         gas_price = transaction["gasPrice"]
