@@ -25,7 +25,7 @@ class HaircutPolicy(BlacklistPolicy):
             self.write_blacklist()
         self._current_block = transaction["blockNumber"]
 
-        self._tx_log = f"Transaction {transaction['hash'].hex()} | "
+        self._tx_log = f"Transaction https://etherscan.io/tx/{transaction['hash'].hex()} | "
 
         # if any of the sender's ETH is blacklisted, check if any ETH was transferred
         if sender in self._blacklist and "ETH" in self._blacklist[sender] and transaction["value"] > 0:

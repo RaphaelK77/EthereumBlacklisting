@@ -441,13 +441,6 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    # transaction_balance_test('0x11b815efB8f581194ae79006d24E0d814B7697F6')
-    # more balance test accounts
-    '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
-
-    '0x1111111254fb6c44bAC0beD2854e76F90643097d'
-
     haircut_policy_test()
-    # haircut_policy_test_transaction(transfer_test_tx)
 
     shutdown()
