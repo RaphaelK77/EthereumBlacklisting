@@ -32,7 +32,11 @@ class HaircutPolicy(BlacklistPolicy):
             # transfer taint from sender to receiver (no need to check for "all", since ETH is tainted immediately)
             self.transfer_taint(from_address=sender, to_address=receiver, amount_sent=transaction["value"], currency="ETH")
 
-        # if the tx was a smart contract invocation
+        # if the sender has any blacklisted ETH, taint the paid gas fees
+        if self.is_blacklisted(sender, "ETH"):
+            self.check_gas_fees(transaction_log, transaction, full_block, sender)
+
+        # if the tx was a smart contract invocation, check every individual transfer event
         if transaction_log["logs"]:
             # get all transfers
             transfer_events = self._eth_utils.get_all_events_of_type_in_tx(transaction_log, ["Transfer"])
@@ -40,6 +44,22 @@ class HaircutPolicy(BlacklistPolicy):
             # dicts to store a local balance and the temporary blacklisting status while processing the transaction logs
             temp_balances = {}
             temp_blacklist = {}
+
+            # if ETH is transferred with the transaction, adjust temporary balances and blacklist accordingly
+            if transaction["value"] > 0:
+                for account in sender, receiver:
+                    temp_balances[account] = {}
+                    temp_balances[account]["ETH"] = self.get_balance(account, "ETH", self._current_block)
+
+                    if self.is_blacklisted(address=account, currency="ETH"):
+                        temp_blacklist[account] = {"ETH": self._blacklist[account]["ETH"]}
+
+                # update temp blacklist
+                temp_blacklist = self.temp_transfer(temp_balances, temp_blacklist, sender, receiver, "ETH", transaction["value"])
+
+                # update temp balances
+                temp_balances[sender]["ETH"] -= transaction["value"]
+                temp_balances[receiver]["ETH"] += transaction["value"]
 
             for transfer_event in transfer_events:
                 currency = transfer_event["address"]
@@ -94,10 +114,6 @@ class HaircutPolicy(BlacklistPolicy):
                             self._queue_write(account, currency, difference)
                     else:
                         self._queue_write(account, currency, temp_blacklist[account][currency])
-
-        # if the sender has any blacklisted ETH, taint the paid gas fees
-        if self.is_blacklisted(sender, "ETH"):
-            self.check_gas_fees(transaction_log, transaction, full_block, sender)
 
     def get_balance(self, account, currency, block):
         balance = self._eth_utils.get_balance(account, currency, block)
