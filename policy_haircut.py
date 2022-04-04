@@ -56,7 +56,7 @@ class HaircutPolicy(BlacklistPolicy):
                         # taint entire balance of this token if not
                         if currency not in self._blacklist[account]["all"]:
                             entire_balance = self.get_balance(account, currency, self._current_block)
-                            # no need to add the token to the blacklist if the balance is 0
+                            # do not add the token to the blacklist if the balance is 0, 0-values in the blacklist can lead to issues
                             if entire_balance > 0:
                                 self.add_to_blacklist(address=account, amount=entire_balance, currency=currency, immediately=True)
                             elif entire_balance == -1:

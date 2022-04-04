@@ -79,7 +79,7 @@ class BlacklistPolicy(ABC):
                 blocks_remaining = block_amount - blocks_scanned
                 logging.info(
                     f"{blocks_scanned} ({format(blocks_scanned / block_amount * 100, '.2f')})% blocks scanned, " +
-                    f" {format(elapsed_time, '.2f')}s elapsed ({utils.format_seconds_as_time(blocks_remaining * (elapsed_time / blocks_scanned))} remaining, " +
+                    f" {utils.format_seconds_as_time(elapsed_time)} elapsed ({utils.format_seconds_as_time(blocks_remaining * (elapsed_time / blocks_scanned))} remaining, " +
                     f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min).")
 
         end_time = time.time()
