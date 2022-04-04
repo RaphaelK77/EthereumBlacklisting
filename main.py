@@ -457,14 +457,16 @@ def haircut_policy_test():
     # TODO: check if haircut proportions are correct
 
     for block in range(test_block, test_block+11):
+        full_block = w3.eth.get_block(block)
+
         for transaction_log in w3.eth.get_block_receipts(block):
             transaction_log = utils.format_log_dict(transaction_log)
 
             full_transaction = w3.eth.get_transaction(transaction_log["transactionHash"])
 
-            blacklist_policy.check_transaction(transaction_log, full_transaction)
+            blacklist_policy.check_transaction(transaction_log, full_transaction, full_block)
 
-        print(f"Blacklist before writing: {blacklist_policy._blacklist}")
+    print(f"Final blacklist: {blacklist_policy.get_blacklist()}")
 
 
 def haircut_policy_test_transaction(tx_hash: str):
@@ -476,7 +478,7 @@ def haircut_policy_test_transaction(tx_hash: str):
 
     full_transaction = w3.eth.get_transaction(tx_hash)
 
-    blacklist_policy.check_transaction(transaction_log, full_transaction)
+    blacklist_policy.check_transaction(transaction_log, full_transaction, None)
 
     print(f"Blacklist before writing: {blacklist_policy._blacklist}")
 
@@ -516,8 +518,8 @@ if __name__ == '__main__':
 
     '0x1111111254fb6c44bAC0beD2854e76F90643097d'
 
-    # haircut_policy_test()
-    haircut_policy_test_transaction(transfer_test_tx)
+    haircut_policy_test()
+    # haircut_policy_test_transaction(transfer_test_tx)
 
     shutdown()
 

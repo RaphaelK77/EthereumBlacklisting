@@ -27,7 +27,7 @@ class HaircutPolicy(BlacklistPolicy):
             self.write_blacklist()
         return self._blacklist
 
-    def check_transaction(self, transaction_log, transaction):
+    def check_transaction(self, transaction_log, transaction, block):
         sender = transaction["from"]
         receiver = transaction["to"]
 
@@ -104,7 +104,26 @@ class HaircutPolicy(BlacklistPolicy):
                         self._queue_write(account, currency, temp_blacklist[account][currency])
 
             # TODO: testing
-            # TODO: gas fees
+            self.check_gas_fees(transaction_log, transaction, block, sender)
+
+    def check_gas_fees(self, transaction_log, transaction, block, sender):
+        gas_price = transaction["gasPrice"]
+        base_fee = block["baseFeePerGas"]
+        gas_used = transaction_log["gasUsed"]
+        miner = block["miner"]
+
+        total_fee_paid = gas_price * gas_used
+        paid_to_miner = (gas_price - base_fee) * gas_used
+        proportion_paid_to_miner = paid_to_miner / total_fee_paid
+
+        taint_proportion = self._blacklist[sender]["ETH"] / self.get_balance(sender, "ETH", self._current_block)
+        tainted_fee = total_fee_paid * taint_proportion
+        tainted_fee_to_miner = tainted_fee * proportion_paid_to_miner
+
+        self._queue_write(sender, "ETH", -tainted_fee)
+        self._queue_write(miner, "ETH", tainted_fee_to_miner)
+
+        self.logger.debug(self._tx_log + f"Fee: Removed {tainted_fee} wei taint from {sender}, and transferred {tainted_fee_to_miner} wei of which to miner {miner}")
 
     def temp_transfer(self, temp_balances, temp_blacklist, sender, receiver, currency, amount):
         # if the sender or currency are not blacklisted, nothing happens
