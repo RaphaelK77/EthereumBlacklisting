@@ -33,7 +33,6 @@ console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
-
 # read config.ini
 config = configparser.ConfigParser()
 config.read("config.ini")
@@ -373,6 +372,16 @@ def haircut_policy_test_transaction(tx_hash: str):
     print(f"Blacklist after writing: {blacklist_policy.get_blacklist()}")
 
 
+def internal_transaction_test(tx_hash: str):
+    transactions_with_value = []
+
+    for tx in w3.parity.trace_transaction(tx_hash):
+        value = int(tx["action"]["value"], base=16)
+        if value > 0:
+            transactions_with_value.append({"from": tx["action"]["from"], "to": tx["action"]["to"], "value": value})
+    return transactions_with_value
+
+
 if __name__ == '__main__':
     print("")
     logger.info("************ Starting **************")
@@ -401,6 +410,7 @@ if __name__ == '__main__':
     # read database location from config and open it
     database = db.Database(parameters["Database"])
 
+    # init eth_utils object
     eth_utils = EthereumUtils(w3)
 
     # get the latest block and log it
@@ -412,9 +422,12 @@ if __name__ == '__main__':
     test_tx = "0x7435b60090e0347fc09bb961e02a4dd5baa59ce0ed83de2f0dffca36243d66f9"
 
     transfer_test_tx = "0xea2ea4fd6a58cecb2de513bdc8448b8079da9df3dfafd7b01a219b30afdc6ecd"
+    internal_test_tx = "0xd0c2ffc366765cc6414cc07f4b4c2befb263af2dbd62f2ba95bc45ea200b79c6"
 
     # ********* TESTING *************
 
     haircut_policy_test()
+
+    # transaction_trace = internal_transaction_test(internal_test_tx)
 
     shutdown()

@@ -102,6 +102,9 @@ class BlacklistPolicy(ABC):
                     f" {utils.format_seconds_as_time(elapsed_time)} elapsed ({utils.format_seconds_as_time(blocks_remaining * (elapsed_time / blocks_scanned))} remaining, " +
                     f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min).")
 
+            self._logger.info(f"Block {i} done, blacklisted amounts:")
+            self.print_blacklisted_amount()
+
         end_time = time.time()
         self._logger.info(
             f"Propagation complete. Total time: {utils.format_seconds_as_time(end_time - start_time)}s, performance: {format(block_amount / (end_time - start_time) * 60, '.0f')} blocks/min")

@@ -27,8 +27,11 @@ class HaircutPolicy(BlacklistPolicy):
 
         self._tx_log = f"Transaction https://etherscan.io/tx/{transaction['hash'].hex()} | "
 
-        # if any of the sender's ETH is blacklisted, check if any ETH was transferred
-        if sender in self._blacklist and "ETH" in self._blacklist[sender] and transaction["value"] > 0:
+        if transaction["hash"].hex() == "0x33cf1982dfec67f271484bd160fbf65ef4329a257e0d042c7c053bb549019afb":
+            print("test")
+
+        # if any of the sender's ETH is blacklisted, taint any sent ETH
+        if self.is_blacklisted(sender, "ETH") and transaction["value"] > 0:
             # transfer taint from sender to receiver (no need to check for "all", since ETH is tainted immediately)
             self.transfer_taint(from_address=sender, to_address=receiver, amount_sent=transaction["value"], currency="ETH")
 
@@ -94,7 +97,7 @@ class HaircutPolicy(BlacklistPolicy):
                         temp_balances[account][currency] = self.get_balance(account, currency, self._current_block)
 
                     # add the account to the temp blacklist if it is on the full blacklist
-                    if self.is_blacklisted(account):
+                    if self.is_blacklisted(account, currency):
                         if account not in temp_blacklist:
                             temp_blacklist[account] = {}
                         if currency not in temp_blacklist[account] and self.is_blacklisted(address=account, currency=currency):
@@ -169,10 +172,15 @@ class HaircutPolicy(BlacklistPolicy):
                 return temp_blacklist
             taint_proportion = temp_blacklist[sender][currency] / temp_balances[sender][currency]
 
+            if taint_proportion > 1:
+                self._logger.error(self._tx_log + f"Account {sender} has more taint than balance " +
+                                   f"({temp_blacklist[sender][currency]} > {temp_balances[sender][currency]}). Tainting full transaction instead.")
+                taint_proportion = 1
+
             transferred_amount = amount * taint_proportion
             temp_blacklist[sender][currency] -= transferred_amount
 
-            # do not transfer taint if receiver is 0, since the tokens were burned
+            # do not transfer taint if receiver is null, since the tokens were burned
             if receiver == null_address:
                 self._logger.info(self._tx_log + f"{format(transferred_amount, '.2e')} of tainted tokens {currency} ({format(amount, '.2e')} total) were burned.")
                 return temp_blacklist
