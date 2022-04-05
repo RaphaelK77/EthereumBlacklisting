@@ -5,6 +5,8 @@ from web3 import Web3
 from blacklist_policy import BlacklistPolicy
 from ethereum_utils import EthereumUtils
 
+null_address = "0x0000000000000000000000000000000000000000"
+
 
 class HaircutPolicy(BlacklistPolicy):
 
@@ -19,7 +21,7 @@ class HaircutPolicy(BlacklistPolicy):
 
         # write changes queued up in the last block
         if transaction["blockNumber"] > self._current_block >= 0:
-            self._logger.debug(f"Writing changes, since transaction block {transaction['blockNumber']} > current block {self._current_block}.")
+            self._logger.debug(f"Writing changes, since transaction block {transaction['blockNumber']} > current block {self._current_block}...")
             self.write_blacklist()
         self._current_block = transaction["blockNumber"]
 
@@ -70,7 +72,7 @@ class HaircutPolicy(BlacklistPolicy):
 
                 for account in transfer_sender, transfer_receiver:
                     # skip null address
-                    if account == "0x0000000000000000000000000000000000000000":
+                    if account == null_address:
                         continue
 
                     # check if "all" flag is set for either sender or receiver, taint all tokens if necessary
@@ -102,8 +104,10 @@ class HaircutPolicy(BlacklistPolicy):
                 temp_blacklist = self.temp_transfer(temp_balances, temp_blacklist, transfer_sender, transfer_receiver, currency, amount)
 
                 # update temp balances with the amount sent in the current transfer
-                temp_balances[transfer_sender][currency] -= amount
-                temp_balances[transfer_receiver][currency] += amount
+                if transfer_sender != null_address:
+                    temp_balances[transfer_sender][currency] -= amount
+                if transfer_receiver != null_address:
+                    temp_balances[transfer_receiver][currency] += amount
 
             # once the transfer has been processed, execute all resulting changes
             for account in temp_blacklist:
@@ -170,7 +174,7 @@ class HaircutPolicy(BlacklistPolicy):
 
             # do not transfer taint if receiver is 0, since the tokens were burned
             if receiver == "0x0000000000000000000000000000000000000000":
-                self._logger.info(self._tx_log + f"{format(transferred_amount,'.2e')} of tainted tokens {currency} ({format(amount,'.2e')} total) were burned.")
+                self._logger.info(self._tx_log + f"{format(transferred_amount, '.2e')} of tainted tokens {currency} ({format(amount, '.2e')} total) were burned.")
                 return temp_blacklist
 
             if receiver not in temp_blacklist:

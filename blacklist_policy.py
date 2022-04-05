@@ -8,6 +8,8 @@ from web3 import Web3
 
 import utils
 
+log_file = "data/blacklist.log"
+
 
 class BlacklistPolicy(ABC):
     def __init__(self, w3: Web3, logging_level=logging.INFO, log_to_file=False):
@@ -27,7 +29,8 @@ class BlacklistPolicy(ABC):
         self._logger.addHandler(console_handler)
 
         if log_to_file:
-            file_handler = logging.FileHandler("data/blacklist.log")
+            open(log_file, "w").close()
+            file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(formatter)
             file_handler.setLevel(logging.DEBUG)
             self._logger.addHandler(file_handler)
@@ -94,7 +97,7 @@ class BlacklistPolicy(ABC):
                 blocks_scanned = i - start_block
                 elapsed_time = time.time() - start_time
                 blocks_remaining = block_amount - blocks_scanned
-                logging.info(
+                self._logger.info(
                     f"{blocks_scanned} ({format(blocks_scanned / block_amount * 100, '.2f')})% blocks scanned, " +
                     f" {utils.format_seconds_as_time(elapsed_time)} elapsed ({utils.format_seconds_as_time(blocks_remaining * (elapsed_time / blocks_scanned))} remaining, " +
                     f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min).")
