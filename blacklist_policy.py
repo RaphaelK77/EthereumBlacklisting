@@ -9,7 +9,7 @@ import utils
 
 
 class BlacklistPolicy(ABC):
-    def __init__(self, w3: Web3, logging_level=logging.INFO):
+    def __init__(self, w3: Web3, logging_level=logging.INFO, log_to_file=False):
         self._blacklist = {}
         """ Dictionary of blacklisted accounts, with a sub-dictionary of the blacklisted currencies of these accounts """
         self.w3 = w3
@@ -17,6 +17,9 @@ class BlacklistPolicy(ABC):
         self._write_queue = []
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(logging_level)
+        if log_to_file:
+            file_handler = logging.FileHandler("data/blacklist.log")
+            self._logger.addHandler(file_handler)
         self._tx_log = ""
 
     @abstractmethod
@@ -86,7 +89,7 @@ class BlacklistPolicy(ABC):
                     f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min).")
 
         end_time = time.time()
-        logging.info(f"Propagation complete. Total time: {format(end_time - start_time, '.2f')}s, performance: {format(block_amount / (end_time - start_time), '.0f')} blocks/s")
+        self._logger.info(f"Propagation complete. Total time: {utils.format_seconds_as_time(end_time - start_time)}s, performance: {format(block_amount / (end_time - start_time)*60, '.0f')} blocks/min")
 
     def is_blacklisted(self, address: str, currency: Optional[str] = None):
         if currency is None:

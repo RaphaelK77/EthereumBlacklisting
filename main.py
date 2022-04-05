@@ -1,40 +1,38 @@
+import configparser
 import json
 import logging
 import sys
 from json import JSONDecodeError
+from typing import Union, List, Tuple, Optional, Callable
 
 import requests
 import web3.constants
-from typing import Union, List, Tuple, Optional, Callable
-
 from hexbytes import HexBytes
 from web3 import Web3
 from web3 import constants
-from web3._utils.rpc_abi import RPC
 from web3.datastructures import AttributeDict
+from web3.eth import Eth, BaseEth
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from web3.logs import DISCARD
 from web3.method import Method, default_root_munger
 from web3.types import BlockIdentifier, TxReceiptBlock, RPCEndpoint
-from web3.eth import Eth, BaseEth
 
 import database as db
 import policy_haircut
 import utils
-from abis import event_abis, function_abis
+from abis import function_abis
 from ethereum_utils import EthereumUtils
 from policy_poison import PoisonPolicy
-
-import configparser
-
 from utils import format_log_dict
 
 # configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
+    format="%(asctime)s [%(levelname)s] %(message)s"
 )
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler(sys.stdout))
 
 # read config.ini
 config = configparser.ConfigParser()
@@ -53,26 +51,15 @@ ETHERSCAN_API_KEY = parameters["EtherScanKey"]
 
 def get_balance(account: str, block: int):
     if block < 0:
-        logging.error(f"Block number cannot be negative (was {block}).")
+        logger.error(f"Block number cannot be negative (was {block}).")
         return None
-    logging.info(f"Getting balance for account {account} at block {block}.")
+    logger.info(f"Getting balance for account {account} at block {block}.")
     try:
         wei = w3_local.eth.get_balance(account, block)
     except ValueError:
-        logging.warning(f"World state at block {block} has not been archived and balance cannot be retrieved.")
+        logger.warning(f"World state at block {block} has not been archived and balance cannot be retrieved.")
         return None
     return wei / constants.WEI_PER_ETHER
-
-
-def print_dict(dictionary):
-    for _key in dictionary:
-        print(f"'{_key}': {dictionary[_key]}")
-
-
-def print_logs(receipt):
-    for log in receipt["logs"]:
-        print_dict(log)
-        print("")
 
 
 def poison_test():
@@ -100,16 +87,16 @@ def is_contract(address: str):
 def get_abi(address: str, block: int):
     abi_from_database = database.get_abi(address, block)
     if abi_from_database:
-        logging.debug(f"Retrieving ABI for address '{address}' from database.")
+        logger.debug(f"Retrieving ABI for address '{address}' from database.")
         try:
             json.loads(abi_from_database)
         except (TypeError, JSONDecodeError):
-            logging.error(f"Decoding ABI from database failed. ABI was: {abi_from_database}")
+            logger.error(f"Decoding ABI from database failed. ABI was: {abi_from_database}")
             exit(-1)
         return abi_from_database
     elif abi_from_database is None:
         return None
-    logging.debug(f"Requesting ABI for address '{address}' from EtherScan.")
+    logger.debug(f"Requesting ABI for address '{address}' from EtherScan.")
     api_call = f"https://api.etherscan.io/api?module=contract&apikey={ETHERSCAN_API_KEY}&action=getabi&address={address}"
     response = requests.get(api_call)
     response_json = response.json()
@@ -128,7 +115,7 @@ def list_functions_for_contract(address: str, block: int):
     try:
         function_list = [entry["name"] for entry in json.loads(abi) if entry["type"] == "function"]
     except JSONDecodeError:
-        logging.error(f"JSON decoding of ABI failed for address '{address}'. ABI was '{abi}'.")
+        logger.error(f"JSON decoding of ABI failed for address '{address}'. ABI was '{abi}'.")
         return []
     return function_list
 
@@ -180,8 +167,8 @@ def get_contract_name_symbol_old(address: str, block: int, force_refresh=False):
                 return name, None
             response_json["result"][0]["SourceCode"] = "..."
             response_json["result"][0]["ABI"] = "..."
-            logging.warning(f"No name found for contract '{address}'. Response was: {response_json}")
-        logging.warning(f"No result received on EtherScan API call. Response was: {response_json}")
+            logger.warning(f"No name found for contract '{address}'. Response was: {response_json}")
+        logger.warning(f"No result received on EtherScan API call. Response was: {response_json}")
         return None, None
 
     contract = get_contract(address, block)
@@ -214,9 +201,9 @@ def get_contract_name_symbol(address: str) -> Tuple[Optional[str], Optional[str]
         name = contract.functions.name().call()
         symbol = contract.functions.symbol().call()
     except web3.exceptions.BadFunctionCallOutput:
-        logging.debug(f"Name and/or Symbol for {address} could not be retrieved, since it is not a smart contract.")
+        logger.debug(f"Name and/or Symbol for {address} could not be retrieved, since it is not a smart contract.")
     except web3.exceptions.ContractLogicError:
-        logging.debug(f"Name and/or Symbol function of smart contract at {address} could does not exist.")
+        logger.debug(f"Name and/or Symbol function of smart contract at {address} could does not exist.")
 
     return name, symbol
 
@@ -267,7 +254,7 @@ def get_swap_path(transaction, block: int):
     currency_list = []
     function_input = input_data[1]
     if "path" not in function_input:
-        logging.debug(f"No path found in function input {function_input} for transaction {transaction}.")
+        logger.debug(f"No path found in function input {function_input} for transaction {transaction}.")
         return "[could not be determined]"
     for currency_address in function_input["path"]:
         request = get_contract_name_symbol(currency_address)
@@ -298,9 +285,9 @@ def get_swap_tokens(contract_address: str):
         token0 = contract.functions.token0().call({})
         token1 = contract.functions.token1().call({})
     except BadFunctionCallOutput:
-        logging.warning(f"token0 or token1 function for DEX contract at {contract_address} could not be executed.")
+        logger.warning(f"token0 or token1 function for DEX contract at {contract_address} could not be executed.")
     except ContractLogicError:
-        logging.warning(f"Smart contract at {contract_address} does not support token0 or token1 functions.")
+        logger.warning(f"Smart contract at {contract_address} does not support token0 or token1 functions.")
 
     return token0, token1
 
@@ -326,7 +313,7 @@ def get_transaction_logs(receipt: AttributeDict):
         contract_object = get_contract(address=smart_contract, block=test_block)
 
         if contract_object is None:
-            logging.warning(f"No ABI found for address {smart_contract}")
+            logger.warning(f"No ABI found for address {smart_contract}")
             continue
 
         receipt_event_signature_hex = Web3.toHex(HexBytes(log["topics"][0]))
@@ -344,7 +331,7 @@ def get_transaction_logs(receipt: AttributeDict):
             # Find match between log's event signature and ABI's event signature
             if event_signature_hex == receipt_event_signature_hex:
                 # Decode matching log
-                # logging.info(f"Decoding log {receipt}")
+                # logger.info(f"Decoding log {receipt}")
                 decoded_logs = contract_object.events[event["name"]]().processReceipt(receipt, errors=DISCARD)
                 break
 
@@ -364,7 +351,7 @@ def haircut_policy_test():
 
     blacklist_policy.propagate_blacklist(test_block, 100)
 
-    if 1 != 2/1:
+    if 1 != 2 / 1:
         return
 
     for block in range(test_block, test_block + 11):
@@ -401,7 +388,7 @@ def haircut_policy_test_transaction(tx_hash: str):
 
 if __name__ == '__main__':
     print("")
-    logging.info("************ Starting **************")
+    logger.info("************ Starting **************")
 
     eth_getBlockReceipts = RPCEndpoint("eth_getBlockReceipts")
 
@@ -431,7 +418,7 @@ if __name__ == '__main__':
 
     # get the latest block and log it
     latest_block = w3.eth.get_block_number()
-    logging.info(f"Latest block: {latest_block}.")
+    logger.info(f"Latest block: {latest_block}.")
 
     # example block and transaction
     test_block = 14394958
