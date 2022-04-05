@@ -342,7 +342,7 @@ def get_transaction_logs(receipt: AttributeDict):
 
 
 def haircut_policy_test():
-    blacklist_policy = policy_haircut.HaircutPolicy(w3, logging_level=logging.DEBUG)
+    blacklist_policy = policy_haircut.HaircutPolicy(w3, logging_level=logging.INFO, log_to_file=True)
     blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=test_block)
     blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=test_block)
     print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
@@ -351,19 +351,6 @@ def haircut_policy_test():
 
     blacklist_policy.propagate_blacklist(test_block, 100)
 
-    if 1 != 2 / 1:
-        return
-
-    for block in range(test_block, test_block + 11):
-        full_block = w3.eth.get_block(block)
-
-        for transaction_log in w3.eth.get_block_receipts(block):
-            transaction_log = utils.format_log_dict(transaction_log)
-
-            full_transaction = w3.eth.get_transaction(transaction_log["transactionHash"])
-
-            blacklist_policy.check_transaction(transaction_log, full_transaction, full_block)
-
     print(f"Final blacklist: {blacklist_policy.get_blacklist()}")
     print(blacklist_policy.get_blacklist_metrics())
     print("Amounts:")
@@ -371,7 +358,7 @@ def haircut_policy_test():
 
 
 def haircut_policy_test_transaction(tx_hash: str):
-    blacklist_policy = policy_haircut.HaircutPolicy(w3, logging_level=logging.DEBUG)
+    blacklist_policy = policy_haircut.HaircutPolicy(w3, logging_level=logging.INFO)
     blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=test_block)
     print(blacklist_policy.get_blacklist())
 

@@ -69,6 +69,10 @@ class HaircutPolicy(BlacklistPolicy):
                     currency = "ETH"
 
                 for account in transfer_sender, transfer_receiver:
+                    # skip null address
+                    if account == "0x0000000000000000000000000000000000000000":
+                        continue
+
                     # check if "all" flag is set for either sender or receiver, taint all tokens if necessary
                     if currency != "ETH" and self.is_blacklisted(address=account, currency="all"):
                         # taint entire balance of this token if not

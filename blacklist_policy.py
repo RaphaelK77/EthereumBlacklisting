@@ -29,6 +29,7 @@ class BlacklistPolicy(ABC):
         if log_to_file:
             file_handler = logging.FileHandler("data/blacklist.log")
             file_handler.setFormatter(formatter)
+            file_handler.setLevel(logging.DEBUG)
             self._logger.addHandler(file_handler)
         self._tx_log = ""
 
