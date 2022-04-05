@@ -173,8 +173,8 @@ class HaircutPolicy(BlacklistPolicy):
             taint_proportion = temp_blacklist[sender][currency] / temp_balances[sender][currency]
 
             if taint_proportion > 1:
-                self._logger.error(self._tx_log + f"Account {sender} has more taint than balance " +
-                                   f"({temp_blacklist[sender][currency]} > {temp_balances[sender][currency]}). Tainting full transaction instead.")
+                self._logger.warning(self._tx_log + f"Account {sender} has more temp. taint than balance " +
+                                     f"({temp_blacklist[sender][currency]} > {temp_balances[sender][currency]}). Tainting full transaction instead.")
                 taint_proportion = 1
 
             transferred_amount = amount * taint_proportion
@@ -202,11 +202,16 @@ class HaircutPolicy(BlacklistPolicy):
             exit(-1)
         taint_proportion = self._blacklist[from_address][currency] / balance
 
+        if taint_proportion > 1:
+            self._logger.warning(self._tx_log + f"Account {from_address} has more temp. taint than balance " +
+                                 f"({self._blacklist[from_address][currency]} > {self._blacklist[from_address][currency]}). Tainting full transaction instead.")
+            taint_proportion = 1
+
         transferred_amount = amount_sent * taint_proportion
         self.remove_from_blacklist(address=from_address, amount=transferred_amount, currency=currency)
 
         # do not transfer taint if receiver is 0, since the tokens were burned
-        if to_address == "0x0000000000000000000000000000000000000000":
+        if to_address == null_address:
             self._logger.info(self._tx_log + f"{format(transferred_amount, '.2e')} of tainted tokens {currency} ({format(amount_sent, '.2e')} total) were burned.")
             return
 
