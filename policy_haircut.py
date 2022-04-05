@@ -82,8 +82,6 @@ class HaircutPolicy(BlacklistPolicy):
                             if entire_balance > 0:
                                 self.add_to_blacklist(address=account, amount=entire_balance, currency=currency, immediately=True)
                                 self._logger.info(self._tx_log + f"Tainted entire balance ({format(entire_balance, '.2e')}) of token {currency} for account {account}.")
-                            elif entire_balance == -1:
-                                self._logger.warning(self._tx_log + f"Balance for token {currency} and account {account} could not be retrieved.")
 
                     # add the account to temp balances
                     if account not in temp_balances:
@@ -157,9 +155,19 @@ class HaircutPolicy(BlacklistPolicy):
         # if the sender or currency are not blacklisted, nothing happens
         # this assumes the logs are checked in the correct order
         if sender in temp_blacklist and currency in temp_blacklist[sender]:
+            if temp_balances[sender][currency] == 0:
+                self._logger.error(self._tx_log + f"The temp balance for account {sender} and currency {currency} is 0, but their blacklist value is {temp_blacklist[sender][currency]}.")
+                return temp_blacklist
             taint_proportion = temp_blacklist[sender][currency] / temp_balances[sender][currency]
+
             transferred_amount = amount * taint_proportion
             temp_blacklist[sender][currency] -= transferred_amount
+
+            # do not transfer taint if receiver is 0, since the tokens were burned
+            if receiver == "0x0000000000000000000000000000000000000000":
+                self._logger.info(self._tx_log + f"{format(transferred_amount,'.2e')} of tainted tokens {currency} ({format(amount,'.2e')} total) were burned.")
+                return temp_blacklist
+
             if receiver not in temp_blacklist:
                 temp_blacklist[receiver] = {currency: transferred_amount}
             elif currency not in temp_blacklist[receiver]:
@@ -179,6 +187,11 @@ class HaircutPolicy(BlacklistPolicy):
 
         transferred_amount = amount_sent * taint_proportion
         self.remove_from_blacklist(address=from_address, amount=transferred_amount, currency=currency)
+
+        # do not transfer taint if receiver is 0, since the tokens were burned
+        if to_address == "0x0000000000000000000000000000000000000000":
+            self._logger.info(self._tx_log + f"{format(transferred_amount, '.2e')} of tainted tokens {currency} ({format(amount_sent, '.2e')} total) were burned.")
+
         self.add_to_blacklist(address=to_address, amount=transferred_amount, currency=currency)
 
         self._logger.debug(self._tx_log + f"Transferred {format(transferred_amount, '.2e')} taint of {currency} from {from_address} to {to_address}")
