@@ -1,17 +1,10 @@
+import logging
+import time
+
 import web3.exceptions
 from web3 import Web3
-import logging
-import sys
-import time
-import utils
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="VERIFIER %(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
+import utils
 
 START_ADDRESS = "0x39fA8c5f2793459D6622857E7D9FbB4BD91766d3"
 last_account = START_ADDRESS

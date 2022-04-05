@@ -1,6 +1,5 @@
 import logging
 import sqlite3
-import sys
 
 
 class Database:

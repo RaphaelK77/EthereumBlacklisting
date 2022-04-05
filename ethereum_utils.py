@@ -1,7 +1,6 @@
-import logging
+from typing import List
 
 import web3.exceptions
-from typing import List
 from web3 import Web3
 from web3.datastructures import AttributeDict
 from web3.logs import DISCARD
@@ -73,7 +72,7 @@ class EthereumUtils:
             checked_addresses = []
 
             if event_type not in event_abis:
-                logging.error(f"Could not get events of type {event_type} from transaction; type unkown.")
+                # logging.error(f"Could not get events of type {event_type} from transaction; type unkown.")
                 continue
 
             token_contract_abi = event_abis[event_type]
@@ -87,7 +86,7 @@ class EthereumUtils:
                 contract_object = self.w3.eth.contract(address=Web3.toChecksumAddress(smart_contract), abi=token_contract_abi)
 
                 if contract_object is None:
-                    logging.warning(f"No ABI found for address {smart_contract}")
+                    # logging.warning(f"No ABI found for address {smart_contract}")
                     continue
 
                 # Decode any matching logs

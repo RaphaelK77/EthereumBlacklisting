@@ -1,21 +1,10 @@
+import logging
 import signal
 import subprocess
-import time
-import logging
 import sys
+import time
 
 from web3 import Web3
-
-import utils
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="HANDLER %(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-
 
 START_BLOCK_MARGIN = 1000
 END_BLOCK_MARGIN = 1000
