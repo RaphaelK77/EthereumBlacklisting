@@ -26,13 +26,13 @@ from policy_poison import PoisonPolicy
 from utils import format_log_dict
 
 # configure logging
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-logger.addHandler(logging.StreamHandler(sys.stdout))
+formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
 
 # read config.ini
 config = configparser.ConfigParser()

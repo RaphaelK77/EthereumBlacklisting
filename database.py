@@ -2,14 +2,6 @@ import logging
 import sqlite3
 import sys
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-
 
 class Database:
     def __init__(self, database_path):

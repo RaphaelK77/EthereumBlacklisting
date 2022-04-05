@@ -1,4 +1,5 @@
 import logging
+import sys
 import time
 from abc import abstractmethod, ABC
 from typing import Optional, Union
@@ -16,9 +17,18 @@ class BlacklistPolicy(ABC):
         """ Web3 instance """
         self._write_queue = []
         self._logger = logging.getLogger(__name__)
-        self._logger.setLevel(logging_level)
+        self._logger.setLevel(logging.DEBUG)
+
+        formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(logging_level)
+        console_handler.setFormatter(formatter)
+        self._logger.addHandler(console_handler)
+
         if log_to_file:
             file_handler = logging.FileHandler("data/blacklist.log")
+            file_handler.setFormatter(formatter)
             self._logger.addHandler(file_handler)
         self._tx_log = ""
 
@@ -89,7 +99,8 @@ class BlacklistPolicy(ABC):
                     f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min).")
 
         end_time = time.time()
-        self._logger.info(f"Propagation complete. Total time: {utils.format_seconds_as_time(end_time - start_time)}s, performance: {format(block_amount / (end_time - start_time)*60, '.0f')} blocks/min")
+        self._logger.info(
+            f"Propagation complete. Total time: {utils.format_seconds_as_time(end_time - start_time)}s, performance: {format(block_amount / (end_time - start_time) * 60, '.0f')} blocks/min")
 
     def is_blacklisted(self, address: str, currency: Optional[str] = None):
         if currency is None:
