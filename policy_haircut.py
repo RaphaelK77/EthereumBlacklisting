@@ -13,15 +13,14 @@ class HaircutPolicy(BlacklistPolicy):
         super().__init__(w3, logging_level)
         self._eth_utils = EthereumUtils(w3)
         self._current_block = -1
-        self._tx_log = ""
 
     def check_transaction(self, transaction_log, transaction, full_block):
         sender = transaction["from"]
         receiver = transaction["to"]
 
+        # write changes queued up in the last block
         if transaction["blockNumber"] > self._current_block >= 0:
             self._logger.debug(f"Writing changes, since transaction block {transaction['blockNumber']} > current block {self._current_block}.")
-            # write changes queued up in the last block
             self.write_blacklist()
         self._current_block = transaction["blockNumber"]
 
@@ -109,9 +108,12 @@ class HaircutPolicy(BlacklistPolicy):
                     if account in self._blacklist and currency in self._blacklist[account]:
                         difference = temp_blacklist[account][currency] - self._blacklist[account][currency]
                         if difference:
-                            self._queue_write(account, currency, difference)
+                            if difference > 0:
+                                self.add_to_blacklist(account, amount=difference, currency=currency)
+                            else:
+                                self.remove_from_blacklist(account, amount=difference, currency=currency)
                     else:
-                        self._queue_write(account, currency, temp_blacklist[account][currency])
+                        self.add_to_blacklist(account, amount=temp_blacklist[account][currency], currency=currency)
 
     def get_balance(self, account, currency, block):
         balance = self._eth_utils.get_balance(account, currency, block)
@@ -191,6 +193,7 @@ class HaircutPolicy(BlacklistPolicy):
         # do not transfer taint if receiver is 0, since the tokens were burned
         if to_address == "0x0000000000000000000000000000000000000000":
             self._logger.info(self._tx_log + f"{format(transferred_amount, '.2e')} of tainted tokens {currency} ({format(amount_sent, '.2e')} total) were burned.")
+            return
 
         self.add_to_blacklist(address=to_address, amount=transferred_amount, currency=currency)
 

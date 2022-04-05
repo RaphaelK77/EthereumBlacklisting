@@ -17,6 +17,7 @@ class BlacklistPolicy(ABC):
         self._write_queue = []
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(logging_level)
+        self._tx_log = ""
 
     @abstractmethod
     def check_transaction(self, transaction_log, transaction, full_block):
@@ -49,6 +50,8 @@ class BlacklistPolicy(ABC):
             self._blacklist[address][currency] += amount
         else:
             self._queue_write(address, currency, amount)
+
+        self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
 
     def _queue_write(self, account, currency, amount):
         self._write_queue.append([account, currency, amount])
@@ -134,4 +137,7 @@ class BlacklistPolicy(ABC):
         :param amount: amount to be removed
         :param currency: token address
         """
+        amount = abs(amount)
         self._queue_write(address, currency, -amount)
+
+        self._logger.debug(self._tx_log + f"Removed {format(amount, '.2e')} of blacklisted currency {currency} from account {address}.")
