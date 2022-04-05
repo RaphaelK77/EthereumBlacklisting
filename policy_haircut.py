@@ -163,7 +163,7 @@ class HaircutPolicy(BlacklistPolicy):
         """
         # if the sender or currency are not blacklisted, nothing happens
         # this assumes the logs are checked in the correct order
-        if sender in temp_blacklist and currency in temp_blacklist[sender] and temp_blacklist[sender] > 0:
+        if sender in temp_blacklist and currency in temp_blacklist[sender] and temp_blacklist[sender][currency] > 0:
             if temp_balances[sender][currency] == 0:
                 self._logger.error(self._tx_log + f"The temp balance for account {sender} and currency {currency} is 0, but their blacklist value is {temp_blacklist[sender][currency]}.")
                 return temp_blacklist
@@ -173,7 +173,7 @@ class HaircutPolicy(BlacklistPolicy):
             temp_blacklist[sender][currency] -= transferred_amount
 
             # do not transfer taint if receiver is 0, since the tokens were burned
-            if receiver == "0x0000000000000000000000000000000000000000":
+            if receiver == null_address:
                 self._logger.info(self._tx_log + f"{format(transferred_amount, '.2e')} of tainted tokens {currency} ({format(amount, '.2e')} total) were burned.")
                 return temp_blacklist
 
