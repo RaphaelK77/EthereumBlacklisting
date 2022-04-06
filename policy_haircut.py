@@ -121,7 +121,7 @@ class HaircutPolicy(BlacklistPolicy):
                                 self.add_to_blacklist(account, amount=difference, currency=currency)
                             else:
                                 self.remove_from_blacklist(account, amount=difference, currency=currency)
-                    else:
+                    elif temp_blacklist[account][currency] > 0:
                         self.add_to_blacklist(account, amount=temp_blacklist[account][currency], currency=currency)
 
     def get_balance(self, account, currency, block):
