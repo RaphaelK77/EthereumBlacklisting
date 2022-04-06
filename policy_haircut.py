@@ -53,6 +53,7 @@ class HaircutPolicy(BlacklistPolicy):
         transfer_events = self._eth_utils.get_all_events_of_type_in_tx(transaction_log, ["Transfer"])
 
         # get all internal transactions
+        # TODO: use argument instead
         transfer_events += self._eth_utils.get_internal_transactions(transaction["hash"].hex())
 
         # dicts to store a local balance and the temporary blacklisting status while processing the transaction logs
