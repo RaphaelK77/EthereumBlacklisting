@@ -62,6 +62,20 @@ class EthereumUtils:
     def get_block_receipts(self, block):
         return [utils.format_log_dict(log) for log in self.w3.manager.request_blocking("eth_getBlockReceipts", [block])]
 
+    def get_internal_transactions(self, tx_hash: str):
+        transactions_with_value = []
+
+        internal_txs = self.w3.parity.trace_transaction(tx_hash)
+        for tx in internal_txs:
+            sender = tx["action"]["from"]
+            receiver = tx["action"]["to"]
+            value = int(tx["action"]["value"], base=16)
+            # filter out all transactions with 0 value or with the WETH token
+            if value > 0 and not self.is_eth(sender) and not self.is_eth(receiver):
+                transactions_with_value.append({"args": {"from": sender, "to": receiver, "value": value}, "address": "ETH", "event": "Internal Transaction"})
+
+        return transactions_with_value
+
     def get_all_events_of_type_in_tx(self, receipt: AttributeDict, event_types: List[str]):
         """
         Retrieves all events of the given types from the logs of the given transaction
