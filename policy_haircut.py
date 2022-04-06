@@ -3,7 +3,6 @@ import logging
 from web3 import Web3
 
 from blacklist_policy import BlacklistPolicy
-from ethereum_utils import EthereumUtils
 
 null_address = "0x0000000000000000000000000000000000000000"
 
@@ -16,7 +15,6 @@ class HaircutPolicy(BlacklistPolicy):
 
     def check_transaction(self, transaction_log, transaction, full_block):
         sender = transaction["from"]
-        receiver = transaction["to"]
 
         # write changes queued up in the last block
         if transaction["blockNumber"] > self._current_block >= 0:
@@ -26,103 +24,80 @@ class HaircutPolicy(BlacklistPolicy):
 
         self._tx_log = f"Transaction https://etherscan.io/tx/{transaction['hash'].hex()} | "
 
-        if transaction["hash"].hex() == "0xea2ea4fd6a58cecb2de513bdc8448b8079da9df3dfafd7b01a219b30afdc6ecd":
-            print("test")
-
-        # if any of the sender's ETH is blacklisted, taint any sent ETH
-        if self.is_blacklisted(sender, "ETH") and transaction["value"] > 0:
-            # transfer taint from sender to receiver (no need to check for "all", since ETH is tainted immediately)
-            self.transfer_taint(from_address=sender, to_address=receiver, amount_sent=transaction["value"], currency="ETH")
-
         # if the sender has any blacklisted ETH, taint the paid gas fees
         if self.is_blacklisted(sender, "ETH"):
             self.check_gas_fees(transaction_log, transaction, full_block, sender)
 
-        # if the tx was a smart contract invocation, check every individual transfer event
-        if transaction_log["logs"]:
-            # get all transfers
-            transfer_events = self._eth_utils.get_all_events_of_type_in_tx(transaction_log, ["Transfer"])
+        # get all transfers
+        transfer_events = self._eth_utils.get_all_events_of_type_in_tx(transaction_log, ["Transfer"])
 
-            # dicts to store a local balance and the temporary blacklisting status while processing the transaction logs
-            temp_balances = {}
-            temp_blacklist = {}
+        # get all internal transactions
+        transfer_events += self._eth_utils.get_internal_transactions(transaction["hash"].hex())
 
-            # if ETH is transferred with the transaction, adjust temporary balances and blacklist accordingly
-            if transaction["value"] > 0:
-                for account in sender, receiver:
+        # dicts to store a local balance and the temporary blacklisting status while processing the transaction logs
+        temp_balances = {}
+        temp_blacklist = {}
+
+        for transfer_event in transfer_events:
+            currency = transfer_event["address"]
+            transfer_sender = transfer_event['args']['from']
+            transfer_receiver = transfer_event['args']['to']
+            amount = transfer_event['args']['value']
+
+            if self._eth_utils.is_eth(currency):
+                currency = "ETH"
+
+            for account in transfer_sender, transfer_receiver:
+                # skip null address
+                if account == null_address:
+                    continue
+
+                # check if "all" flag is set for either sender or receiver, taint all tokens if necessary
+                if currency != "ETH" and self.is_blacklisted(address=account, currency="all"):
+                    # taint entire balance of this token if not
+                    if currency not in self._blacklist[account]["all"]:
+                        entire_balance = self.get_balance(account, currency, self._current_block)
+                        # add token to "all"-list to mark it as done
+                        self._blacklist[account]["all"].append(currency)
+                        # do not add the token to the blacklist if the balance is 0, 0-values in the blacklist can lead to issues
+                        if entire_balance > 0:
+                            self.add_to_blacklist(address=account, amount=entire_balance, currency=currency, immediately=True)
+                            self._logger.info(self._tx_log + f"Tainted entire balance ({format(entire_balance, '.2e')}) of token {currency} for account {account}.")
+
+                # add the account to temp balances
+                if account not in temp_balances:
                     temp_balances[account] = {}
-                    temp_balances[account]["ETH"] = self.get_balance(account, "ETH", self._current_block)
+                if currency not in temp_balances[account]:
+                    temp_balances[account][currency] = self.get_balance(account, currency, self._current_block)
 
-                    if self.is_blacklisted(address=account, currency="ETH"):
-                        temp_blacklist[account] = {"ETH": self._blacklist[account]["ETH"]}
+                # add the account to the temp blacklist if it is on the full blacklist
+                if self.is_blacklisted(account, currency):
+                    if account not in temp_blacklist:
+                        temp_blacklist[account] = {}
+                    if currency not in temp_blacklist[account]:
+                        temp_blacklist[account][currency] = self._blacklist[account][currency]
 
-                # update temp blacklist
-                temp_blacklist = self.temp_transfer(temp_balances, temp_blacklist, sender, receiver, "ETH", transaction["value"])
+            # update temp blacklist with the current transfer
+            temp_blacklist = self.temp_transfer(temp_balances, temp_blacklist, transfer_sender, transfer_receiver, currency, amount)
 
-                # update temp balances
-                temp_balances[sender]["ETH"] -= transaction["value"]
-                temp_balances[receiver]["ETH"] += transaction["value"]
+            # update temp balances with the amount sent in the current transfer
+            if transfer_sender != null_address:
+                temp_balances[transfer_sender][currency] -= amount
+            if transfer_receiver != null_address:
+                temp_balances[transfer_receiver][currency] += amount
 
-            for transfer_event in transfer_events:
-                currency = transfer_event["address"]
-                transfer_sender = transfer_event['args']['from']
-                transfer_receiver = transfer_event['args']['to']
-                amount = transfer_event['args']['value']
-
-                if self._eth_utils.is_eth(currency):
-                    currency = "ETH"
-
-                for account in transfer_sender, transfer_receiver:
-                    # skip null address
-                    if account == null_address:
-                        continue
-
-                    # check if "all" flag is set for either sender or receiver, taint all tokens if necessary
-                    if currency != "ETH" and self.is_blacklisted(address=account, currency="all"):
-                        # taint entire balance of this token if not
-                        if currency not in self._blacklist[account]["all"]:
-                            entire_balance = self.get_balance(account, currency, self._current_block)
-                            # add token to "all"-list to mark it as done
-                            self._blacklist[account]["all"].append(currency)
-                            # do not add the token to the blacklist if the balance is 0, 0-values in the blacklist can lead to issues
-                            if entire_balance > 0:
-                                self.add_to_blacklist(address=account, amount=entire_balance, currency=currency, immediately=True)
-                                self._logger.info(self._tx_log + f"Tainted entire balance ({format(entire_balance, '.2e')}) of token {currency} for account {account}.")
-
-                    # add the account to temp balances
-                    if account not in temp_balances:
-                        temp_balances[account] = {}
-                    if currency not in temp_balances[account]:
-                        temp_balances[account][currency] = self.get_balance(account, currency, self._current_block)
-
-                    # add the account to the temp blacklist if it is on the full blacklist
-                    if self.is_blacklisted(account, currency):
-                        if account not in temp_blacklist:
-                            temp_blacklist[account] = {}
-                        if currency not in temp_blacklist[account]:
-                            temp_blacklist[account][currency] = self._blacklist[account][currency]
-
-                # update temp blacklist with the current transfer
-                temp_blacklist = self.temp_transfer(temp_balances, temp_blacklist, transfer_sender, transfer_receiver, currency, amount)
-
-                # update temp balances with the amount sent in the current transfer
-                if transfer_sender != null_address:
-                    temp_balances[transfer_sender][currency] -= amount
-                if transfer_receiver != null_address:
-                    temp_balances[transfer_receiver][currency] += amount
-
-            # once the transfer has been processed, execute all resulting changes
-            for account in temp_blacklist:
-                for currency in temp_blacklist[account]:
-                    if account in self._blacklist and currency in self._blacklist[account]:
-                        difference = temp_blacklist[account][currency] - self._blacklist[account][currency]
-                        if difference:
-                            if difference > 0:
-                                self.add_to_blacklist(account, amount=difference, currency=currency)
-                            else:
-                                self.remove_from_blacklist(account, amount=difference, currency=currency)
-                    elif temp_blacklist[account][currency] > 0:
-                        self.add_to_blacklist(account, amount=temp_blacklist[account][currency], currency=currency)
+        # once the transfer has been processed, execute all resulting changes
+        for account in temp_blacklist:
+            for currency in temp_blacklist[account]:
+                if account in self._blacklist and currency in self._blacklist[account]:
+                    difference = temp_blacklist[account][currency] - self._blacklist[account][currency]
+                    if difference:
+                        if difference > 0:
+                            self.add_to_blacklist(account, amount=difference, currency=currency)
+                        else:
+                            self.remove_from_blacklist(account, amount=difference, currency=currency)
+                elif temp_blacklist[account][currency] > 0:
+                    self.add_to_blacklist(account, amount=temp_blacklist[account][currency], currency=currency)
 
     def get_balance(self, account, currency, block):
         balance = self._eth_utils.get_balance(account, currency, block)
