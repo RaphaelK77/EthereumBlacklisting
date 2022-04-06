@@ -15,6 +15,7 @@ class HaircutPolicy(BlacklistPolicy):
 
     def check_transaction(self, transaction_log, transaction, full_block):
         sender = transaction["from"]
+        receiver = transaction["to"]
 
         # write changes queued up in the last block
         if transaction["blockNumber"] > self._current_block >= 0:
@@ -28,6 +29,15 @@ class HaircutPolicy(BlacklistPolicy):
         if self.is_blacklisted(sender, "ETH"):
             self.check_gas_fees(transaction_log, transaction, full_block, sender)
 
+        # skip the remaining code if there were no smart contract events
+        if not transaction_log["logs"]:
+            # if any of the sender's ETH is blacklisted, taint any sent ETH
+            # (this will be done as part of the transfers if the tx is a smart contract invocation)
+            if transaction["value"] > 0 and self.is_blacklisted(sender, "ETH"):
+                # transfer taint from sender to receiver (no need to check for "all", since ETH is tainted immediately)
+                self.transfer_taint(from_address=sender, to_address=receiver, amount_sent=transaction["value"], currency="ETH")
+            return
+
         # get all transfers
         transfer_events = self._eth_utils.get_all_events_of_type_in_tx(transaction_log, ["Transfer"])
 
@@ -37,6 +47,22 @@ class HaircutPolicy(BlacklistPolicy):
         # dicts to store a local balance and the temporary blacklisting status while processing the transaction logs
         temp_balances = {}
         temp_blacklist = {}
+
+        # if ETH is transferred with the transaction, adjust temporary balances and blacklist accordingly
+        if transaction["value"] > 0:
+            for account in sender, receiver:
+                temp_balances[account] = {}
+                temp_balances[account]["ETH"] = self.get_balance(account, "ETH", self._current_block)
+
+                if self.is_blacklisted(address=account, currency="ETH"):
+                    temp_blacklist[account] = {"ETH": self._blacklist[account]["ETH"]}
+
+            # update temp blacklist
+            temp_blacklist = self.temp_transfer(temp_balances, temp_blacklist, sender, receiver, "ETH", transaction["value"])
+
+            # update temp balances
+            temp_balances[sender]["ETH"] -= transaction["value"]
+            temp_balances[receiver]["ETH"] += transaction["value"]
 
         for transfer_event in transfer_events:
             currency = transfer_event["address"]
@@ -102,9 +128,11 @@ class HaircutPolicy(BlacklistPolicy):
     def get_balance(self, account, currency, block):
         balance = self._eth_utils.get_balance(account, currency, block)
         if balance == -1:
-            self._logger.warning(self._tx_log + f"Balance for token {currency} and account {account} could not be retrieved.")
+            self._logger.debug(self._tx_log + f"Balance for token {currency} and account {account} could not be retrieved.")
+            return 0
         if balance == -2:
-            self._logger.warning(self._tx_log + f"Balance of account {account} for token {currency} could not be retrieved. The smart contract does not support 'balanceOf'.")
+            self._logger.debug(self._tx_log + f"Balance of account {account} for token {currency} could not be retrieved. The smart contract does not support 'balanceOf'.")
+            return 0
         return balance
 
     def check_gas_fees(self, transaction_log, transaction, block, sender):
@@ -150,7 +178,7 @@ class HaircutPolicy(BlacklistPolicy):
                 difference = temp_blacklist[sender][currency] - temp_balances[sender][currency]
                 self._logger.warning(self._tx_log + f"Account {sender} has more temp. taint than balance " +
                                      f"({temp_blacklist[sender][currency]} > {temp_balances[sender][currency]}). " +
-                                     f"Tainting full transaction instead and reducing taint by {format(difference,'.2e')}.")
+                                     f"Tainting full transaction instead and reducing taint by {format(difference, '.2e')}.")
                 temp_blacklist[sender][currency] -= difference
                 taint_proportion = 1
 
@@ -159,7 +187,7 @@ class HaircutPolicy(BlacklistPolicy):
             # correct for rounding errors that would increase the total amount of taint
             # by limiting the transferred taint to the sent amount
             if transferred_amount > amount:
-                self._logger.debug(f"Corrected rounding error that increased the taint by {format(transferred_amount - amount,'.2e')}.")
+                self._logger.debug(f"Corrected rounding error that increased the taint by {format(transferred_amount - amount, '.2e')}.")
                 transferred_amount = amount
 
             temp_blacklist[sender][currency] -= transferred_amount

@@ -340,7 +340,7 @@ def get_transaction_logs(receipt: AttributeDict):
     return _log_dict
 
 
-def haircut_policy_test():
+def haircut_policy_test(block_number):
     blacklist_policy = policy_haircut.HaircutPolicy(w3, logging_level=logging.INFO, log_to_file=True)
     blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=test_block)
     blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=test_block)
@@ -348,7 +348,7 @@ def haircut_policy_test():
     print("Amounts:")
     blacklist_policy.print_blacklisted_amount()
 
-    blacklist_policy.propagate_blacklist(test_block, 100)
+    blacklist_policy.propagate_blacklist(test_block, block_number)
 
     print(f"Final blacklist: {blacklist_policy.get_blacklist()}")
     print(blacklist_policy.get_blacklist_metrics())
@@ -370,16 +370,6 @@ def haircut_policy_test_transaction(tx_hash: str):
     print(f"Blacklist before writing: {blacklist_policy._blacklist}")
 
     print(f"Blacklist after writing: {blacklist_policy.get_blacklist()}")
-
-
-def internal_transaction_test(tx_hash: str):
-    transactions_with_value = []
-
-    for tx in w3.parity.trace_transaction(tx_hash):
-        value = int(tx["action"]["value"], base=16)
-        if value > 0:
-            transactions_with_value.append({"from": tx["action"]["from"], "to": tx["action"]["to"], "value": value})
-    return transactions_with_value
 
 
 if __name__ == '__main__':
@@ -412,8 +402,8 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    haircut_policy_test()
-
-    # transaction_trace = internal_transaction_test(internal_test_tx)
+    haircut_policy_test(30)
+    # eth_utils.get_internal_transactions("0xc1a808b5232867f15632fc226ebf229505cbffa153fb0e7309131faef938825c")
+    # eth_utils.get_internal_transactions("0x5b55f2e94a62ff26d9a4f3fa27b22da533be447377b3a6f73bf1c3edf906edcd")
 
     shutdown()
