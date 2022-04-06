@@ -1,3 +1,4 @@
+import functools
 from typing import List
 
 import web3.exceptions
@@ -42,6 +43,7 @@ class EthereumUtils:
 
         return balance
 
+    @functools.lru_cache(maxsize=1024)
     def get_balance(self, account, currency, block):
         if self.is_eth(currency):
             total_balance = 0
