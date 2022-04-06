@@ -386,20 +386,6 @@ if __name__ == '__main__':
     print("")
     logger.info("************ Starting **************")
 
-    eth_getBlockReceipts = RPCEndpoint("eth_getBlockReceipts")
-
-
-    def get_block_receipts(self, block_identifier: BlockIdentifier) -> List[TxReceiptBlock]:
-        return [utils.format_log_dict(log) for log in self._get_block_receipts(block_identifier)]
-
-
-    _get_block_receipts: Method[Callable[[BlockIdentifier], List[TxReceiptBlock]]] = Method(
-        eth_getBlockReceipts,
-        mungers=[default_root_munger], )
-
-    setattr(Eth, "get_block_receipts", get_block_receipts)
-    setattr(BaseEth, "_get_block_receipts", _get_block_receipts)
-
     # setup web3
     w3_local = Web3(local_provider)
     w3_remote = Web3(remote_provider)

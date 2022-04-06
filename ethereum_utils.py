@@ -4,6 +4,7 @@ import web3.exceptions
 from web3 import Web3
 from web3.datastructures import AttributeDict
 from web3.logs import DISCARD
+import utils
 
 from abis import event_abis
 
@@ -57,6 +58,9 @@ class EthereumUtils:
             return True
         else:
             return currency in self.eth_list
+
+    def get_block_receipts(self, block):
+        return [utils.format_log_dict(log) for log in self.w3.manager.request_blocking("eth_getBlockReceipts", [block])]
 
     def get_all_events_of_type_in_tx(self, receipt: AttributeDict, event_types: List[str]):
         """

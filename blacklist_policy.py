@@ -7,6 +7,7 @@ from typing import Optional, Union
 from web3 import Web3
 
 import utils
+from ethereum_utils import EthereumUtils
 
 log_file = "data/blacklist.log"
 
@@ -20,6 +21,7 @@ class BlacklistPolicy(ABC):
         self._write_queue = []
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(logging.DEBUG)
+        self._eth_utils = EthereumUtils(w3)
 
         formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
@@ -88,7 +90,7 @@ class BlacklistPolicy(ABC):
         for i in range(start_block, start_block + block_amount):
             full_block = self.w3.eth.get_block(i, full_transactions=True)
             transactions = full_block["transactions"]
-            receipts = self.w3.eth.get_block_receipts(i)
+            receipts = self._eth_utils.get_block_receipts(i)
 
             for transaction, transaction_log in zip(transactions, receipts):
                 self.check_transaction(transaction_log=transaction_log, transaction=transaction, full_block=full_block)

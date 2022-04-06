@@ -12,7 +12,6 @@ class HaircutPolicy(BlacklistPolicy):
 
     def __init__(self, w3: Web3, logging_level=logging.INFO, log_to_file=False):
         super().__init__(w3, logging_level, log_to_file)
-        self._eth_utils = EthereumUtils(w3)
         self._current_block = -1
 
     def check_transaction(self, transaction_log, transaction, full_block):
