@@ -1,3 +1,4 @@
+import json
 import logging
 
 from web3 import Web3
@@ -12,6 +13,12 @@ class HaircutPolicy(BlacklistPolicy):
     def __init__(self, w3: Web3, logging_level=logging.INFO, log_to_file=False):
         super().__init__(w3, logging_level, log_to_file)
         self._current_block = -1
+
+    def export_blacklist(self, target_file):
+        with open(target_file, "w") as outfile:
+            json.dump(self._blacklist, outfile)
+
+        self._logger.info(f"Successfully exported blacklist to {target_file}.")
 
     def check_transaction(self, transaction_log, transaction, full_block):
         sender = transaction["from"]
@@ -28,6 +35,10 @@ class HaircutPolicy(BlacklistPolicy):
         # if the sender has any blacklisted ETH, taint the paid gas fees
         if self.is_blacklisted(sender, "ETH"):
             self.check_gas_fees(transaction_log, transaction, full_block, sender)
+
+        # do not process wrap/unwrap transactions
+        if self._eth_utils.is_eth(receiver):
+            return
 
         # skip the remaining code if there were no smart contract events
         if not transaction_log["logs"]:
@@ -146,8 +157,8 @@ class HaircutPolicy(BlacklistPolicy):
         proportion_paid_to_miner = paid_to_miner / total_fee_paid
 
         taint_proportion = self._blacklist[sender]["ETH"] / self.get_balance(sender, "ETH", self._current_block)
-        tainted_fee = total_fee_paid * taint_proportion
-        tainted_fee_to_miner = tainted_fee * proportion_paid_to_miner
+        tainted_fee = int(total_fee_paid * taint_proportion)
+        tainted_fee_to_miner = int(tainted_fee * proportion_paid_to_miner)
 
         self.remove_from_blacklist(sender, amount=tainted_fee, currency="ETH")
         self.add_to_blacklist(miner, amount=tainted_fee_to_miner, currency="ETH")
