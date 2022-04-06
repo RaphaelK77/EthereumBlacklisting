@@ -63,7 +63,7 @@ def get_balance(account: str, block: int):
 
 def poison_test():
     poison = PoisonPolicy(w3_local)
-    poison.add_to_blacklist("0x8C6AE7a05a1dE57582ae2768204276c0ff47ed03", -1, "ETH")
+    poison.add_to_blacklist("0x8C6AE7a05a1dE57582ae2768204276c0ff47ed03")
 
     print(f"Blacklisted amount start: {poison.get_blacklisted_amount(60000) / web3.constants.WEI_PER_ETHER} ETH")
 
@@ -402,9 +402,7 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    a = w3.parity.trace_block(test_block)
-
-    # haircut_policy_test(30)
+    haircut_policy_test(30)
     # eth_utils.get_internal_transactions("0xc1a808b5232867f15632fc226ebf229505cbffa153fb0e7309131faef938825c")
     # eth_utils.get_internal_transactions("0x5b55f2e94a62ff26d9a4f3fa27b22da533be447377b3a6f73bf1c3edf906edcd")
 

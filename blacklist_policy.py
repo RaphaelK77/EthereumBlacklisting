@@ -93,9 +93,17 @@ class BlacklistPolicy(ABC):
             receipts = self._eth_utils.get_block_receipts(i)
             traces = self.w3.parity.trace_block(i)
 
-            # TODO: filter traces for transaction (check hash of [0] and pop it)
-
             for transaction, transaction_log in zip(transactions, receipts):
+                internal_transactions = []
+                while traces:
+                    if "transactionHash" not in traces[0]:
+                        traces.pop(0)
+                        continue
+                    elif traces[0]["transactionHash"] == transaction["hash"].hex():
+                        internal_transactions.append(traces.pop(0))
+                    else:
+                        break
+
                 self.check_transaction(transaction_log=transaction_log, transaction=transaction, full_block=full_block)
 
             if (i - start_block) % interval == 0 and i - start_block > 0:
