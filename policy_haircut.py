@@ -26,7 +26,7 @@ class HaircutPolicy(BlacklistPolicy):
 
         self._tx_log = f"Transaction https://etherscan.io/tx/{transaction['hash'].hex()} | "
 
-        if transaction["hash"].hex() == "0x33cf1982dfec67f271484bd160fbf65ef4329a257e0d042c7c053bb549019afb":
+        if transaction["hash"].hex() == "0xea2ea4fd6a58cecb2de513bdc8448b8079da9df3dfafd7b01a219b30afdc6ecd":
             print("test")
 
         # if any of the sender's ETH is blacklisted, taint any sent ETH
@@ -99,7 +99,7 @@ class HaircutPolicy(BlacklistPolicy):
                     if self.is_blacklisted(account, currency):
                         if account not in temp_blacklist:
                             temp_blacklist[account] = {}
-                        if currency not in temp_blacklist[account] and self.is_blacklisted(address=account, currency=currency):
+                        if currency not in temp_blacklist[account]:
                             temp_blacklist[account][currency] = self._blacklist[account][currency]
 
                 # update temp blacklist with the current transfer
@@ -172,11 +172,21 @@ class HaircutPolicy(BlacklistPolicy):
             taint_proportion = temp_blacklist[sender][currency] / temp_balances[sender][currency]
 
             if taint_proportion > 1:
+                difference = temp_blacklist[sender][currency] - temp_balances[sender][currency]
                 self._logger.warning(self._tx_log + f"Account {sender} has more temp. taint than balance " +
-                                     f"({temp_blacklist[sender][currency]} > {temp_balances[sender][currency]}). Tainting full transaction instead.")
+                                     f"({temp_blacklist[sender][currency]} > {temp_balances[sender][currency]}). " +
+                                     f"Tainting full transaction instead and reducing taint by {format(difference,'.2e')}.")
+                temp_blacklist[sender][currency] -= difference
                 taint_proportion = 1
 
-            transferred_amount = amount * taint_proportion
+            transferred_amount = int(amount * taint_proportion)
+
+            # correct for rounding errors that would increase the total amount of taint
+            # by limiting the transferred taint to the sent amount
+            if transferred_amount > amount:
+                self._logger.debug(f"Corrected rounding error that increased the taint by {format(transferred_amount - amount,'.2e')}.")
+                transferred_amount = amount
+
             temp_blacklist[sender][currency] -= transferred_amount
 
             # do not transfer taint if receiver is null, since the tokens were burned
