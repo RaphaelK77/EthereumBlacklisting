@@ -4,6 +4,8 @@ import web3.exceptions
 from web3 import Web3
 from web3.datastructures import AttributeDict
 from web3.logs import DISCARD
+
+import abis
 import utils
 
 from abis import event_abis
@@ -27,8 +29,7 @@ class EthereumUtils:
         if block is None:
             block = self.w3.eth.get_block_number()
 
-        token_contract_abi = [
-            {"type": "function", "name": "balanceOf", "constant": "true", "payable": "false", "inputs": [{"name": "", "type": "address"}], "outputs": [{"name": "", "type": "uint256"}]}]
+        token_contract_abi = abis.function_abis["BalanceOf"]
 
         contract = self.w3.eth.contract(address=Web3.toChecksumAddress(token_address), abi=token_contract_abi)
 

@@ -103,5 +103,17 @@ function_abis = {
         }],
         "stateMutability": "view",
         "type": "function"
+    }],
+    "BalanceOf": [{
+        "type": "function",
+        "name": "balanceOf",
+        "constant": "true",
+        "payable": "false",
+        "inputs": [{
+            "name": "",
+            "type": "address"}],
+        "outputs": [{
+            "name": "",
+            "type": "uint256"}]
     }]
 }
