@@ -365,7 +365,7 @@ def haircut_policy_test_transaction(tx_hash: str):
 
     full_transaction = w3.eth.get_transaction(tx_hash)
 
-    blacklist_policy.check_transaction(transaction_log, full_transaction, None)
+    blacklist_policy.check_transaction(transaction_log, full_transaction, None, None)
 
     print(f"Blacklist before writing: {blacklist_policy._blacklist}")
 

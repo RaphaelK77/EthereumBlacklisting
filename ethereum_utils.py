@@ -63,6 +63,18 @@ class EthereumUtils:
     def get_block_receipts(self, block):
         return [utils.format_log_dict(log) for log in self.w3.manager.request_blocking("eth_getBlockReceipts", [block])]
 
+    def internal_transaction_to_event(self, internal_tx):
+        if "value" not in internal_tx["action"]:
+            return None
+        value = int(internal_tx["action"]["value"], base=16)
+        if value > 0:
+            sender = internal_tx["action"]["from"]
+            receiver = internal_tx["action"]["to"]
+            if not self.is_eth(sender) and not self.is_eth(receiver):
+                return {"args": {"from": Web3.toChecksumAddress(sender), "to": Web3.toChecksumAddress(receiver),
+                                 "value": value}, "address": "ETH", "event": "Internal Transaction"}
+        return None
+
     def get_internal_transactions(self, tx_hash: str, only_internal=True, ignore_eth=True):
         transactions_with_value = []
 

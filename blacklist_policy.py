@@ -39,7 +39,7 @@ class BlacklistPolicy(ABC):
         self._tx_log = ""
 
     @abstractmethod
-    def check_transaction(self, transaction_log, transaction, full_block):
+    def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
         pass
 
     def get_blacklist(self):
@@ -100,11 +100,15 @@ class BlacklistPolicy(ABC):
                         traces.pop(0)
                         continue
                     elif traces[0]["transactionHash"] == transaction["hash"].hex():
-                        internal_transactions.append(traces.pop(0))
+                        # process internal tx and make it readable by check_transaction
+                        internal_transaction_event = self._eth_utils.internal_transaction_to_event(traces.pop(0))
+                        # exclude internal transactions with no value
+                        if internal_transaction_event:
+                            internal_transactions.append(internal_transaction_event)
                     else:
                         break
 
-                self.check_transaction(transaction_log=transaction_log, transaction=transaction, full_block=full_block)
+                self.check_transaction(transaction_log=transaction_log, transaction=transaction, full_block=full_block, internal_transactions=internal_transactions)
 
             if (i - start_block) % interval == 0 and i - start_block > 0:
                 blocks_scanned = i - start_block

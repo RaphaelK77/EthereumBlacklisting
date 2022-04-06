@@ -20,7 +20,7 @@ class HaircutPolicy(BlacklistPolicy):
 
         self._logger.info(f"Successfully exported blacklist to {target_file}.")
 
-    def check_transaction(self, transaction_log, transaction, full_block):
+    def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
         sender = transaction["from"]
         receiver = transaction["to"]
 
@@ -53,8 +53,7 @@ class HaircutPolicy(BlacklistPolicy):
         transfer_events = self._eth_utils.get_all_events_of_type_in_tx(transaction_log, ["Transfer"])
 
         # get all internal transactions
-        # TODO: use argument instead
-        transfer_events += self._eth_utils.get_internal_transactions(transaction["hash"].hex())
+        transfer_events += internal_transactions
 
         # dicts to store a local balance and the temporary blacklisting status while processing the transaction logs
         temp_balances = {}
