@@ -212,8 +212,11 @@ class HaircutPolicy(BlacklistPolicy):
         taint_proportion = self._blacklist[from_address][currency] / balance
 
         if taint_proportion > 1:
-            self._logger.warning(self._tx_log + f"Account {from_address} has more temp. taint than balance " +
-                                 f"({self._blacklist[from_address][currency]} > {self._blacklist[from_address][currency]}). Tainting full transaction instead.")
+            difference = self._blacklist[from_address][currency] - self._blacklist[from_address][currency]
+            self._logger.warning(self._tx_log + f"Account {from_address} has more taint than balance " +
+                                 f"({self._blacklist[from_address][currency]} > {self._blacklist[from_address][currency]}). " +
+                                 f"Tainting full transaction instead and reducing taint by {difference}.")
+            self._blacklist[from_address][currency] -= difference
             taint_proportion = 1
 
         transferred_amount = amount_sent * taint_proportion
