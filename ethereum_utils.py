@@ -66,7 +66,7 @@ class EthereumUtils:
         return [utils.format_log_dict(log) for log in self.w3.manager.request_blocking("eth_getBlockReceipts", [block])]
 
     def internal_transaction_to_event(self, internal_tx):
-        if "value" not in internal_tx["action"]:
+        if "value" not in internal_tx["action"] or "to" not in internal_tx["action"] or "from" not in internal_tx["action"]:
             return None
         value = int(internal_tx["action"]["value"], base=16)
         if value > 0:
