@@ -11,8 +11,8 @@ null_address = "0x0000000000000000000000000000000000000000"
 
 class HaircutPolicy(BlacklistPolicy):
 
-    def __init__(self, w3: Web3, logging_level=logging.INFO, log_to_file=False):
-        super().__init__(w3, BufferedDictBlacklist(), logging_level, log_to_file)
+    def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False):
+        super().__init__(w3, blacklist=BufferedDictBlacklist(), checkpoint_file=checkpoint_file, logging_level=logging_level, log_to_file=log_to_file)
 
     def export_blacklist(self, target_file):
         with open(target_file, "w") as outfile:

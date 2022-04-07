@@ -341,14 +341,14 @@ def get_transaction_logs(receipt: AttributeDict):
 
 
 def haircut_policy_test(block_number):
-    blacklist_policy = policy_haircut.HaircutPolicy(w3, logging_level=logging.INFO, log_to_file=True)
+    blacklist_policy = policy_haircut.HaircutPolicy(w3, checkpoint_file="data/blacklist_checkpoint.json", logging_level=logging.INFO, log_to_file=True)
     blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=test_block)
     blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=test_block)
     print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
     print("Amounts:")
     blacklist_policy.print_blacklisted_amount()
 
-    blacklist_policy.propagate_blacklist(test_block, block_number)
+    blacklist_policy.propagate_blacklist(test_block, block_number, load_checkpoint=True)
 
     print(f"Final blacklist: {blacklist_policy.get_blacklist()}")
     print(blacklist_policy.get_blacklist_metrics())
@@ -402,7 +402,7 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    haircut_policy_test(1000)
+    haircut_policy_test(20)
     # eth_utils.get_internal_transactions("0xc1a808b5232867f15632fc226ebf229505cbffa153fb0e7309131faef938825c")
     # eth_utils.get_internal_transactions("0x5b55f2e94a62ff26d9a4f3fa27b22da533be447377b3a6f73bf1c3edf906edcd")
 

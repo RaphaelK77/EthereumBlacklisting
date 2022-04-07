@@ -12,3 +12,6 @@ class SeniorityPolicy(BlacklistPolicy):
 
     def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
         pass
+
+    def add_account_to_blacklist(self, address: str, block: int, immediately=False):
+        super().add_account_to_blacklist(address, block)

@@ -1,3 +1,4 @@
+import json
 import logging
 import sys
 import time
@@ -14,7 +15,7 @@ log_file = "data/blacklist.log"
 
 
 class BlacklistPolicy(ABC):
-    def __init__(self, w3: Web3, blacklist: Blacklist, logging_level=logging.INFO, log_to_file=False):
+    def __init__(self, w3: Web3, checkpoint_file, blacklist: Blacklist, logging_level=logging.INFO, log_to_file=False):
         self._blacklist: Blacklist = blacklist
         self.w3 = w3
         """ Web3 instance """
@@ -23,6 +24,7 @@ class BlacklistPolicy(ABC):
         self._logger.setLevel(logging.DEBUG)
         self._eth_utils = EthereumUtils(w3)
         self._current_block = -1
+        self._checkpoint_file = checkpoint_file
 
         formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
@@ -43,6 +45,49 @@ class BlacklistPolicy(ABC):
     def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
         pass
 
+    def save_checkpoint(self, file_path):
+        data = {"block": self._current_block, "blacklist": self._blacklist.get_blacklist()}
+
+        with open(file_path, "w") as outfile:
+            json.dump(data, outfile)
+
+        self._logger.info(f"Successfully exported blacklist to {file_path}.")
+
+    def load_from_checkpoint(self, file_path):
+        try:
+            with open(file_path, "r") as checkpoint:
+                data = json.load(checkpoint)
+        except FileNotFoundError:
+            self._logger.info(f"No file found under path {file_path}. Continuing without loading checkpoint.")
+            return 0, {}
+        last_block = data["block"]
+        saved_blacklist = data["blacklist"]
+        self._logger.info(f"Loading saved data from {file_path}. Last block was {last_block}.")
+        return last_block, saved_blacklist
+
+    def check_block(self, block):
+        full_block = self.w3.eth.get_block(block, full_transactions=True)
+        transactions = full_block["transactions"]
+        receipts = self._eth_utils.get_block_receipts(block)
+        traces = self.w3.parity.trace_block(block)
+
+        for transaction, transaction_log in zip(transactions, receipts):
+            internal_transactions = []
+            while traces:
+                if "transactionHash" not in traces[0]:
+                    traces.pop(0)
+                    continue
+                elif traces[0]["transactionHash"] == transaction["hash"].hex():
+                    # process internal tx and make it readable by check_transaction
+                    internal_transaction_event = self._eth_utils.internal_transaction_to_event(traces.pop(0))
+                    # exclude internal transactions with no value
+                    if internal_transaction_event:
+                        internal_transactions.append(internal_transaction_event)
+                else:
+                    break
+
+            self.check_transaction(transaction_log=transaction_log, transaction=transaction, full_block=full_block, internal_transactions=internal_transactions)
+
     def get_blacklist(self):
         return self._blacklist.get_blacklist()
 
@@ -62,10 +107,12 @@ class BlacklistPolicy(ABC):
 
         self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
 
-    def propagate_blacklist(self, start_block, block_amount):
+    def propagate_blacklist(self, start_block, block_amount, load_checkpoint=False):
         start_time = time.time()
 
-        if block_amount < 500:
+        if block_amount < 50:
+            interval = 1
+        elif block_amount < 500:
             interval = 10
         elif block_amount < 5000:
             interval = 100
@@ -74,39 +121,29 @@ class BlacklistPolicy(ABC):
         else:
             interval = 10000
 
-        for i in range(start_block, start_block + block_amount):
-            full_block = self.w3.eth.get_block(i, full_transactions=True)
-            transactions = full_block["transactions"]
-            receipts = self._eth_utils.get_block_receipts(i)
-            traces = self.w3.parity.trace_block(i)
+        loop_start_block = start_block
 
-            for transaction, transaction_log in zip(transactions, receipts):
-                internal_transactions = []
-                while traces:
-                    if "transactionHash" not in traces[0]:
-                        traces.pop(0)
-                        continue
-                    elif traces[0]["transactionHash"] == transaction["hash"].hex():
-                        # process internal tx and make it readable by check_transaction
-                        internal_transaction_event = self._eth_utils.internal_transaction_to_event(traces.pop(0))
-                        # exclude internal transactions with no value
-                        if internal_transaction_event:
-                            internal_transactions.append(internal_transaction_event)
-                    else:
-                        break
+        if load_checkpoint:
+            saved_block, saved_blacklist = self.load_from_checkpoint(self._checkpoint_file)
+            if start_block < saved_block < start_block + block_amount:
+                loop_start_block = saved_block
+                self._blacklist.set_blacklist(saved_blacklist)
 
-                self.check_transaction(transaction_log=transaction_log, transaction=transaction, full_block=full_block, internal_transactions=internal_transactions)
+        for i in range(loop_start_block, start_block + block_amount):
+            self.check_block(i)
 
-            if (i - start_block) % interval == 0 and i - start_block > 0:
-                blocks_scanned = i - start_block
+            if (i - start_block) % interval == 0 and i - loop_start_block > 0:
+                total_blocks_scanned = i - start_block
+                blocks_scanned = i - loop_start_block
                 elapsed_time = time.time() - start_time
                 blocks_remaining = block_amount - blocks_scanned
                 self._logger.info(
-                    f"{blocks_scanned} ({format(blocks_scanned / block_amount * 100, '.2f')}%) blocks scanned, " +
+                    f"{total_blocks_scanned} ({format(total_blocks_scanned / block_amount * 100, '.2f')}%) blocks scanned, " +
                     f" {utils.format_seconds_as_time(elapsed_time)} elapsed ({utils.format_seconds_as_time(blocks_remaining * (elapsed_time / blocks_scanned))} remaining, " +
                     f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min).")
                 print("Blacklisted amounts:")
                 self.print_blacklisted_amount()
+                self.save_checkpoint(self._checkpoint_file)
 
         end_time = time.time()
         self._logger.info(

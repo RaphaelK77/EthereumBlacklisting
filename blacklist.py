@@ -41,8 +41,15 @@ class Blacklist(ABC):
     def write_blacklist(self):
         pass
 
+    @abstractmethod
+    def set_blacklist(self, blacklist):
+        pass
+
 
 class DictBlacklist(Blacklist):
+    def set_blacklist(self, blacklist: dict):
+        self._blacklist = blacklist
+
     def __init__(self):
         self._blacklist = {}
         """ Dictionary of blacklisted accounts, with a sub-dictionary of the blacklisted currencies of these accounts """
