@@ -66,7 +66,7 @@ class HaircutPolicy(BlacklistPolicy):
                 temp_balances[account]["ETH"] = self.get_balance(account, "ETH", self._current_block)
 
                 if self.is_blacklisted(address=account, currency="ETH"):
-                    temp_blacklist[account] = {"ETH": self._blacklist[account]["ETH"]}
+                    temp_blacklist[account] = {"ETH": self.get_blacklist_value(account, "ETH")}
 
             # update temp blacklist
             temp_blacklist = self.temp_transfer(temp_balances, temp_blacklist, sender, receiver, "ETH", transaction["value"])
@@ -92,7 +92,7 @@ class HaircutPolicy(BlacklistPolicy):
                 # check if "all" flag is set for either sender or receiver, taint all tokens if necessary
                 if currency != "ETH" and self.is_blacklisted(address=account, currency="all"):
                     # taint entire balance of this token if not
-                    if currency not in self._blacklist[account]["all"]:
+                    if currency not in self.get_blacklist_value(account, "all"):
                         entire_balance = self.get_balance(account, currency, self._current_block)
                         # add token to "all"-list to mark it as done
                         self.add_currency_to_all(account, currency)
@@ -254,6 +254,7 @@ class HaircutPolicy(BlacklistPolicy):
         :param address: Ethereum address to blacklist
         :param block: block at which the current balance should be blacklisted
         """
+        self._blacklist.add_account_to_blacklist(address, block)
 
         # blacklist all ETH
         eth_balance = self.get_balance(account=address, currency="ETH", block=block)
