@@ -16,7 +16,7 @@ class HaircutPolicy(BlacklistPolicy):
 
     def export_blacklist(self, target_file):
         with open(target_file, "w") as outfile:
-            json.dump(self._blacklist, outfile)
+            json.dump(self._blacklist.get_blacklist(), outfile)
 
         self._logger.info(f"Successfully exported blacklist to {target_file}.")
 
@@ -27,7 +27,7 @@ class HaircutPolicy(BlacklistPolicy):
         # write changes queued up in the last block
         if transaction["blockNumber"] > self._current_block >= 0:
             self._logger.debug(f"Writing changes, since transaction block {transaction['blockNumber']} > current block {self._current_block}...")
-            self.write_blacklist()
+            self._blacklist.write_blacklist()
         self._current_block = transaction["blockNumber"]
 
         self._tx_log = f"Transaction https://etherscan.io/tx/{transaction['hash'].hex()} | "
@@ -95,7 +95,7 @@ class HaircutPolicy(BlacklistPolicy):
                     if currency not in self._blacklist[account]["all"]:
                         entire_balance = self.get_balance(account, currency, self._current_block)
                         # add token to "all"-list to mark it as done
-                        self._blacklist[account]["all"].append(currency)
+                        self.add_currency_to_all(account, currency)
                         # do not add the token to the blacklist if the balance is 0, 0-values in the blacklist can lead to issues
                         if entire_balance > 0:
                             self.add_to_blacklist(address=account, amount=entire_balance, currency=currency, immediately=True)
@@ -112,7 +112,7 @@ class HaircutPolicy(BlacklistPolicy):
                     if account not in temp_blacklist:
                         temp_blacklist[account] = {}
                     if currency not in temp_blacklist[account]:
-                        temp_blacklist[account][currency] = self._blacklist[account][currency]
+                        temp_blacklist[account][currency] = self.get_blacklist_value(account, currency)
 
             # update temp blacklist with the current transfer
             temp_blacklist = self.temp_transfer(temp_balances, temp_blacklist, transfer_sender, transfer_receiver, currency, amount)
@@ -126,8 +126,8 @@ class HaircutPolicy(BlacklistPolicy):
         # once the transfer has been processed, execute all resulting changes
         for account in temp_blacklist:
             for currency in temp_blacklist[account]:
-                if account in self._blacklist and currency in self._blacklist[account]:
-                    difference = temp_blacklist[account][currency] - self._blacklist[account][currency]
+                if self.is_blacklisted(account, currency):
+                    difference = temp_blacklist[account][currency] - self.get_blacklist_value(account, currency)
                     if difference:
                         if difference > 0:
                             self.add_to_blacklist(account, amount=difference, currency=currency)
@@ -156,7 +156,7 @@ class HaircutPolicy(BlacklistPolicy):
         paid_to_miner = (gas_price - base_fee) * gas_used
         proportion_paid_to_miner = paid_to_miner / total_fee_paid
 
-        taint_proportion = self._blacklist[sender]["ETH"] / self.get_balance(sender, "ETH", self._current_block)
+        taint_proportion = self.get_blacklist_value(sender, "ETH") / self.get_balance(sender, "ETH", self._current_block)
         tainted_fee = int(total_fee_paid * taint_proportion)
         tainted_fee_to_miner = int(tainted_fee * proportion_paid_to_miner)
 
@@ -223,14 +223,14 @@ class HaircutPolicy(BlacklistPolicy):
         if balance == 0:
             self._logger.error(self._tx_log + "Balance is 0")
             exit(-1)
-        taint_proportion = self._blacklist[from_address][currency] / balance
+        taint_proportion = self.get_blacklist_value(from_address, currency) / balance
 
         if taint_proportion > 1:
-            difference = self._blacklist[from_address][currency] - self._blacklist[from_address][currency]
+            difference = self.get_blacklist_value(from_address, currency) - self.get_blacklist_value(from_address, currency)
             self._logger.warning(self._tx_log + f"Account {from_address} has more taint than balance " +
-                                 f"({self._blacklist[from_address][currency]} > {self._blacklist[from_address][currency]}). " +
+                                 f"({self.get_blacklist_value(from_address, currency)} > {balance}). " +
                                  f"Tainting full transaction instead and reducing taint by {difference}.")
-            self._blacklist[from_address][currency] -= difference
+            self.remove_from_blacklist(from_address, difference, currency, immediately=True)
             taint_proportion = 1
 
         transferred_amount = amount_sent * taint_proportion
@@ -254,46 +254,11 @@ class HaircutPolicy(BlacklistPolicy):
         :param address: Ethereum address to blacklist
         :param block: block at which the current balance should be blacklisted
         """
-        # finish all pending write operations; WARNING: will cause issues if done mid-block
-        self.write_blacklist()
-
-        # add address to blacklist
-        if address not in self._blacklist:
-            self._blacklist[address] = {}
-        # set all flag or clear it
-        self._blacklist[address]["all"] = []
 
         # blacklist all ETH
         eth_balance = self.get_balance(account=address, currency="ETH", block=block)
-        self._blacklist[address]["ETH"] = eth_balance
+        self.add_to_blacklist(address, amount=eth_balance, currency="ETH", immediately=True)
 
+        self._logger.info(f"Added entire account of {address} to the blacklist.")
         self._logger.info(f"Blacklisted entire balance of {format(eth_balance, '.2e')} wei (ETH) of account {address}")
 
-    def get_blacklisted_amount(self, block=None):
-        amounts = {}
-
-        for account in self._blacklist:
-            for currency in self._blacklist[account].keys():
-                if currency != "all":
-                    if currency not in amounts:
-                        amounts[currency] = self._blacklist[account][currency]
-                    else:
-                        amounts[currency] += self._blacklist[account][currency]
-
-        return amounts
-
-    def get_blacklist_metrics(self):
-        result = {}
-
-        currencies = set()
-        for account in self._blacklist:
-            for currency in self._blacklist[account].keys():
-                if currency != "all":
-                    currencies.add(currency)
-
-        result["UniqueCurrencies"] = len(currencies)
-        result["Currencies"] = currencies
-
-        result["UniqueTaintedAccounts"] = len(self._blacklist)
-
-        return result

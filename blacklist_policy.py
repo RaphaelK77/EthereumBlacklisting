@@ -7,6 +7,7 @@ from typing import Optional, Union
 from web3 import Web3
 
 import utils
+from blacklist import BufferedDictBlacklist
 from ethereum_utils import EthereumUtils
 
 log_file = "data/blacklist.log"
@@ -14,8 +15,7 @@ log_file = "data/blacklist.log"
 
 class BlacklistPolicy(ABC):
     def __init__(self, w3: Web3, logging_level=logging.INFO, log_to_file=False):
-        self._blacklist = {}
-        """ Dictionary of blacklisted accounts, with a sub-dictionary of the blacklisted currencies of these accounts """
+        self._blacklist = BufferedDictBlacklist()
         self.w3 = w3
         """ Web3 instance """
         self._write_queue = []
@@ -43,12 +43,9 @@ class BlacklistPolicy(ABC):
         pass
 
     def get_blacklist(self):
-        if self._write_queue:
-            self._logger.debug("Writing blacklist, because get_blacklist was called.")
-            self.write_blacklist()
-        return self._blacklist
+        return self._blacklist.get_blacklist()
 
-    def add_to_blacklist(self, address: str, amount, currency: str, immediately=False):
+    def add_to_blacklist(self, address: str, amount: int, currency: str, immediately=False):
         """
         Add the specified amount of the given currency to the given account's blacklisted balance.
 
@@ -57,23 +54,9 @@ class BlacklistPolicy(ABC):
         :param immediately: if true, write operation will not be queued, but executed immediately
         :param amount: amount to be added
         """
-        # add address if not in blacklist
-        if address not in self._blacklist:
-            self._blacklist[address] = {}
-
-        # add currency to address if not in blacklist
-        if currency not in self._blacklist[address]:
-            self._blacklist[address][currency] = 0
-
-        if immediately:
-            self._blacklist[address][currency] += amount
-        else:
-            self._queue_write(address, currency, amount)
+        self._blacklist.add_to_blacklist(address, amount, currency, immediately)
 
         self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
-
-    def _queue_write(self, account, currency, amount):
-        self._write_queue.append([account, currency, amount])
 
     def propagate_blacklist(self, start_block, block_amount):
         start_time = time.time()
@@ -115,26 +98,27 @@ class BlacklistPolicy(ABC):
                 elapsed_time = time.time() - start_time
                 blocks_remaining = block_amount - blocks_scanned
                 self._logger.info(
-                    f"{blocks_scanned} ({format(blocks_scanned / block_amount * 100, '.2f')})% blocks scanned, " +
+                    f"{blocks_scanned} ({format(blocks_scanned / block_amount * 100, '.2f')}%) blocks scanned, " +
                     f" {utils.format_seconds_as_time(elapsed_time)} elapsed ({utils.format_seconds_as_time(blocks_remaining * (elapsed_time / blocks_scanned))} remaining, " +
                     f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min).")
-
-            self._logger.info(f"Block {i} done, blacklisted amounts:")
-            self.print_blacklisted_amount()
+                print("Blacklisted amounts:")
+                self.print_blacklisted_amount()
 
         end_time = time.time()
         self._logger.info(
             f"Propagation complete. Total time: {utils.format_seconds_as_time(end_time - start_time)}, performance: {format(block_amount / (end_time - start_time) * 60, '.0f')} blocks/min")
 
     def is_blacklisted(self, address: str, currency: Optional[str] = None):
-        if currency is None:
-            return address in self._blacklist
-        else:
-            return address in self._blacklist and currency in self._blacklist[address]
+        return self._blacklist.is_blacklisted(address, currency)
 
-    @abstractmethod
-    def get_blacklisted_amount(self, block=None) -> dict:
-        pass
+    def add_currency_to_all(self, address, currency):
+        return self._blacklist.add_currency_to_all(address, currency)
+
+    def get_blacklist_value(self, account, currency):
+        return self._blacklist.get_account_blacklist_value(account, currency)
+
+    def get_blacklisted_amount(self) -> dict:
+        return self._blacklist.get_blacklisted_amount()
 
     def print_blacklisted_amount(self):
         blacklisted_amounts = self.get_blacklisted_amount()
@@ -143,39 +127,21 @@ class BlacklistPolicy(ABC):
             print(f"\t{currency}:\t{format(blacklisted_amounts[currency], '.5e')},")
         print("}")
 
-    def write_blacklist(self):
-        for operation in self._write_queue:
-            account = operation[0]
-            currency = operation[1]
-            amount = operation[2]
-
-            if account not in self._blacklist:
-                self._blacklist[account] = {}
-            if currency not in self._blacklist[account]:
-                self._blacklist[account][currency] = 0
-
-            self._blacklist[account][currency] += amount
-
-            # delete currency from dict if 0
-            if self._blacklist[account][currency] <= 0:
-                del self._blacklist[account][currency]
-
-                # delete account from dict if no currencies left
-                if not self._blacklist[account]:
-                    del self._blacklist[account]
-
-        self._write_queue = []
-        self._logger.debug("Wrote changes to blacklist.")
-
-    def remove_from_blacklist(self, address: str, amount: Union[int, float], currency: str):
+    def remove_from_blacklist(self, address: str, amount: Union[int, float], currency: str, immediately=False):
         """
         Remove the specified amount of the given currency from the given account's blacklisted balance.
 
+        :param immediately: write immediately if True, else add to queue
         :param address: Ethereum address
         :param amount: amount to be removed
         :param currency: token address
         """
-        amount = abs(amount)
-        self._queue_write(address, currency, -amount)
+        if immediately:
+            self._blacklist.remove_from_blacklist(address, amount, currency, immediately)
+        else:
+            self._blacklist.remove_from_blacklist(address, amount, currency)
 
         self._logger.debug(self._tx_log + f"Removed {format(amount, '.2e')} of blacklisted currency {currency} from account {address}.")
+
+    def get_blacklist_metrics(self):
+        return self._blacklist.get_metrics()
