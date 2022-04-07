@@ -39,16 +39,12 @@ class Blacklist(ABC):
         pass
 
 
-class BufferedDictBlacklist(Blacklist):
+class DictBlacklist(Blacklist):
     def __init__(self):
         self._blacklist = {}
         """ Dictionary of blacklisted accounts, with a sub-dictionary of the blacklisted currencies of these accounts """
-        self._write_queue = []
 
-    def _queue_write(self, account, currency, amount):
-        self._write_queue.append([account, currency, amount])
-
-    def add_to_blacklist(self, address, currency, amount, immediately=False):
+    def add_to_blacklist(self, address: str, currency: str, amount: int):
         # add address if not in blacklist
         if address not in self._blacklist:
             self._blacklist[address] = {}
@@ -57,12 +53,9 @@ class BufferedDictBlacklist(Blacklist):
         if currency not in self._blacklist[address]:
             self._blacklist[address][currency] = 0
 
-        if immediately:
-            self._blacklist[address][currency] += amount
-        else:
-            self._queue_write(address, currency, amount)
+        self._blacklist[address][currency] += amount
 
-    def is_blacklisted(self, address, currency=None):
+    def is_blacklisted(self, address: str, currency=None):
         if currency is None:
             return address in self._blacklist
         else:
@@ -82,9 +75,34 @@ class BufferedDictBlacklist(Blacklist):
         return amounts
 
     def get_blacklist(self):
-        if self._write_queue:
-            self.write_blacklist()
         return self._blacklist
+
+    def remove_from_blacklist(self, address: str, amount: int, currency: str):
+        amount = abs(amount)
+
+        self._blacklist[address][currency] -= amount
+        if self._blacklist[address][currency] == 0:
+            del self._blacklist[address]
+
+            if not self._blacklist[address]:
+                del self._blacklist[address]
+
+    def add_account_to_blacklist(self, account: str, block: int):
+        # add address to blacklist
+        if account not in self._blacklist:
+            self._blacklist[account] = {}
+        # set all flag or clear it
+        self._blacklist[account]["all"] = []
+
+    def get_account_blacklist_value(self, account: str, currency: int):
+        if account not in self._blacklist or currency not in self._blacklist[account]:
+            return 0
+
+        else:
+            return self._blacklist[account][currency]
+
+    def add_currency_to_all(self, account: str, currency: str):
+        self._blacklist[account]["all"].append(currency)
 
     def get_metrics(self):
         result = {}
@@ -101,6 +119,34 @@ class BufferedDictBlacklist(Blacklist):
         result["UniqueTaintedAccounts"] = len(self._blacklist)
 
         return result
+
+
+class BufferedDictBlacklist(DictBlacklist):
+    def __init__(self):
+        super().__init__()
+        self._write_queue = []
+
+    def _queue_write(self, account, currency, amount):
+        self._write_queue.append([account, currency, amount])
+
+    def add_to_blacklist(self, address, currency, amount, immediately=False):
+        # add address if not in blacklist
+        if address not in self._blacklist:
+            self._blacklist[address] = {}
+
+        # add currency to address if not in blacklist
+        if currency not in self._blacklist[address]:
+            self._blacklist[address][currency] = 0
+
+        if immediately:
+            self._blacklist[address][currency] += amount
+        else:
+            self._queue_write(address, currency, amount)
+
+    def get_blacklist(self):
+        if self._write_queue:
+            self.write_blacklist()
+        return self._blacklist
 
     def write_blacklist(self):
         for operation in self._write_queue:
@@ -129,12 +175,7 @@ class BufferedDictBlacklist(Blacklist):
         amount = abs(amount)
 
         if immediately:
-            self._blacklist[address][currency] -= amount
-            if self._blacklist[address][currency] == 0:
-                del self._blacklist[address]
-
-                if not self._blacklist[address]:
-                    del self._blacklist[address]
+            super().remove_from_blacklist(address, amount, currency)
         else:
             self._queue_write(address, currency, -amount)
 
@@ -142,18 +183,4 @@ class BufferedDictBlacklist(Blacklist):
         # finish all pending write operations; WARNING: will cause issues if done mid-block
         self.write_blacklist()
 
-        # add address to blacklist
-        if account not in self._blacklist:
-            self._blacklist[account] = {}
-        # set all flag or clear it
-        self._blacklist[account]["all"] = []
-
-    def get_account_blacklist_value(self, account, currency):
-        if account not in self._blacklist or currency not in self._blacklist[account]:
-            return 0
-
-        else:
-            return self._blacklist[account][currency]
-
-    def add_currency_to_all(self, account, currency):
-        self._blacklist[account]["all"].append(currency)
+        super().add_account_to_blacklist(account, block)
