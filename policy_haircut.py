@@ -171,7 +171,9 @@ class HaircutPolicy(BlacklistPolicy):
         # this assumes the logs are checked in the correct order
         if sender in temp_blacklist and currency in temp_blacklist[sender] and temp_blacklist[sender][currency] > 0:
             if temp_balances[sender][currency] == 0:
-                self._logger.error(self._tx_log + f"The temp balance for account {sender} and currency {currency} is 0, but their blacklist value is {temp_blacklist[sender][currency]}.")
+                if temp_blacklist[sender][currency] > 1000:
+                    self._logger.error(self._tx_log + f"The temp balance for account {sender} and currency {currency} is 0, but their blacklist value is {temp_blacklist[sender][currency]}.")
+                temp_blacklist[sender][currency] = 0
                 return temp_blacklist
             taint_proportion = temp_blacklist[sender][currency] / temp_balances[sender][currency]
 
