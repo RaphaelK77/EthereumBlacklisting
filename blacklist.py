@@ -3,11 +3,11 @@ from abc import ABC, abstractmethod
 
 class Blacklist(ABC):
     @abstractmethod
-    def add_to_blacklist(self, address, currency, amount):
+    def add_to_blacklist(self, address: str, currency: str, amount: int):
         pass
 
     @abstractmethod
-    def is_blacklisted(self, address, currency=None):
+    def is_blacklisted(self, address: str, currency=None):
         pass
 
     @abstractmethod
@@ -19,19 +19,19 @@ class Blacklist(ABC):
         pass
 
     @abstractmethod
-    def remove_from_blacklist(self, address, amount, currency):
+    def remove_from_blacklist(self, address: str, amount: int, currency: str):
         pass
 
     @abstractmethod
-    def add_account_to_blacklist(self, account, block):
+    def add_account_to_blacklist(self, account: str, block: int):
         pass
 
     @abstractmethod
-    def get_account_blacklist_value(self, account, currency):
+    def get_account_blacklist_value(self, account: str, currency: int):
         pass
 
     @abstractmethod
-    def add_currency_to_all(self, account, currency):
+    def add_currency_to_all(self, account: str, currency: str):
         pass
 
     @abstractmethod

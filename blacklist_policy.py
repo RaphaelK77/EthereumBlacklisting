@@ -54,7 +54,10 @@ class BlacklistPolicy(ABC):
         :param immediately: if true, write operation will not be queued, but executed immediately
         :param amount: amount to be added
         """
-        self._blacklist.add_to_blacklist(address, amount, currency, immediately)
+        if immediately:
+            self._blacklist.add_to_blacklist(address, currency=currency, amount=amount, immediately=immediately)
+        else:
+            self._blacklist.add_to_blacklist(address, currency=currency, amount=amount)
 
         self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
 
