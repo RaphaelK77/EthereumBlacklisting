@@ -225,7 +225,7 @@ class HaircutPolicy(BlacklistPolicy):
             self.remove_from_blacklist(from_address, difference, currency, immediately=True)
             taint_proportion = 1
 
-        transferred_amount = amount_sent * taint_proportion
+        transferred_amount = int(amount_sent * taint_proportion)
         self.remove_from_blacklist(address=from_address, amount=transferred_amount, currency=currency)
 
         # do not transfer taint if receiver is 0, since the tokens were burned

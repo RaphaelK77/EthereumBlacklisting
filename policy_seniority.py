@@ -7,8 +7,8 @@ from blacklist_policy import BlacklistPolicy
 
 
 class SeniorityPolicy(BlacklistPolicy):
-    def __init__(self, w3: Web3, logging_level=logging.INFO, log_to_file=False):
-        super().__init__(w3, DictBlacklist(), logging_level, log_to_file)
+    def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False):
+        super().__init__(w3, checkpoint_file, DictBlacklist(), logging_level, log_to_file)
 
     def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
         pass

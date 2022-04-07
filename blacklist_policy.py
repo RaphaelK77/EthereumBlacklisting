@@ -110,7 +110,7 @@ class BlacklistPolicy(ABC):
     def propagate_blacklist(self, start_block, block_amount, load_checkpoint=False):
         start_time = time.time()
 
-        if block_amount < 50:
+        if block_amount < 20:
             interval = 1
         elif block_amount < 500:
             interval = 10
@@ -187,7 +187,7 @@ class BlacklistPolicy(ABC):
     def get_blacklist_metrics(self):
         return self._blacklist.get_metrics()
 
-    def get_balance(self, account, currency, block):
+    def get_balance(self, account, currency, block) -> int:
         balance = self._eth_utils.get_balance(account, currency, block)
         if balance == -1:
             self._logger.debug(self._tx_log + f"Balance for token {currency} and account {account} could not be retrieved.")
