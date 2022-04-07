@@ -7,21 +7,22 @@ from typing import Optional, Union
 from web3 import Web3
 
 import utils
-from blacklist import BufferedDictBlacklist
+from blacklist import Blacklist
 from ethereum_utils import EthereumUtils
 
 log_file = "data/blacklist.log"
 
 
 class BlacklistPolicy(ABC):
-    def __init__(self, w3: Web3, logging_level=logging.INFO, log_to_file=False):
-        self._blacklist = BufferedDictBlacklist()
+    def __init__(self, w3: Web3, blacklist: Blacklist, logging_level=logging.INFO, log_to_file=False):
+        self._blacklist: Blacklist = blacklist
         self.w3 = w3
         """ Web3 instance """
         self._write_queue = []
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(logging.DEBUG)
         self._eth_utils = EthereumUtils(w3)
+        self._current_block = -1
 
         formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
@@ -148,3 +149,34 @@ class BlacklistPolicy(ABC):
 
     def get_blacklist_metrics(self):
         return self._blacklist.get_metrics()
+
+    def get_balance(self, account, currency, block):
+        balance = self._eth_utils.get_balance(account, currency, block)
+        if balance == -1:
+            self._logger.debug(self._tx_log + f"Balance for token {currency} and account {account} could not be retrieved.")
+            return 0
+        if balance == -2:
+            self._logger.debug(self._tx_log + f"Balance of account {account} for token {currency} could not be retrieved. The smart contract does not support 'balanceOf'.")
+            return 0
+        return balance
+
+    def add_account_to_blacklist(self, address: str, block: int, immediately=False):
+        """
+        Add an entire account to the blacklist.
+        The account dict will hold under "all" every currency already tainted.
+
+        :param immediately: add the account immediately if a buffered dict blacklist is used
+        :param address: Ethereum address to blacklist
+        :param block: block at which the current balance should be blacklisted
+        """
+        self._blacklist.add_account_to_blacklist(address, block)
+
+        # blacklist all ETH
+        eth_balance = self.get_balance(account=address, currency="ETH", block=block)
+        if immediately:
+            self.add_to_blacklist(address, amount=eth_balance, currency="ETH", immediately=True)
+        else:
+            self.add_to_blacklist(address, amount=eth_balance, currency="ETH")
+
+        self._logger.info(f"Added entire account of {address} to the blacklist.")
+        self._logger.info(f"Blacklisted entire balance of {format(eth_balance, '.2e')} wei (ETH) of account {address}")

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 class Blacklist(ABC):
     @abstractmethod
-    def add_to_blacklist(self, address: str, currency: str, amount: int):
+    def add_to_blacklist(self, address: str, currency: str, amount: int, immediately=False):
         pass
 
     @abstractmethod
@@ -19,7 +19,7 @@ class Blacklist(ABC):
         pass
 
     @abstractmethod
-    def remove_from_blacklist(self, address: str, amount: int, currency: str):
+    def remove_from_blacklist(self, address: str, amount: int, currency: str, immediately=False):
         pass
 
     @abstractmethod
@@ -38,13 +38,16 @@ class Blacklist(ABC):
     def get_metrics(self):
         pass
 
+    def write_blacklist(self):
+        pass
+
 
 class DictBlacklist(Blacklist):
     def __init__(self):
         self._blacklist = {}
         """ Dictionary of blacklisted accounts, with a sub-dictionary of the blacklisted currencies of these accounts """
 
-    def add_to_blacklist(self, address: str, currency: str, amount: int):
+    def add_to_blacklist(self, address: str, currency: str, amount: int, immediately=False):
         # add address if not in blacklist
         if address not in self._blacklist:
             self._blacklist[address] = {}
@@ -77,7 +80,7 @@ class DictBlacklist(Blacklist):
     def get_blacklist(self):
         return self._blacklist
 
-    def remove_from_blacklist(self, address: str, amount: int, currency: str):
+    def remove_from_blacklist(self, address: str, amount: int, currency: str, immediately=False):
         amount = abs(amount)
 
         self._blacklist[address][currency] -= amount
