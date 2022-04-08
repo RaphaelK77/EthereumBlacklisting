@@ -30,9 +30,7 @@ class EthereumUtils:
         if block is None:
             block = self.w3.eth.get_block_number()
 
-        token_contract_abi = abis.function_abis["BalanceOf"]
-
-        contract = self.w3.eth.contract(address=Web3.toChecksumAddress(token_address), abi=token_contract_abi)
+        contract = self.get_smart_contract(token_address, function_type="BalanceOf")
 
         try:
             balance = contract.functions.balanceOf(account).call({}, block)
@@ -102,6 +100,19 @@ class EthereumUtils:
         else:
             return transactions_with_value
 
+    @functools.lru_cache(2048)
+    def get_smart_contract(self, address, abi: dict = None, event_type: str = None, function_type: str = None):
+        if event_type:
+            if event_type not in event_abis:
+                return None
+            abi = event_abis[event_type]
+        elif function_type:
+            if function_type not in abis.function_abis:
+                return None
+            abi = abis.function_abis[function_type]
+
+        return self.w3.eth.contract(address=Web3.toChecksumAddress(address), abi=abi)
+
     def get_all_events_of_type_in_tx(self, receipt: AttributeDict, event_types: List[str]):
         """
         Retrieves all events of the given types from the logs of the given transaction
@@ -116,10 +127,7 @@ class EthereumUtils:
             checked_addresses = []
 
             if event_type not in event_abis:
-                # logging.error(f"Could not get events of type {event_type} from transaction; type unkown.")
                 continue
-
-            token_contract_abi = event_abis[event_type]
 
             for log in receipt["logs"]:
                 smart_contract = log["address"]
@@ -127,10 +135,9 @@ class EthereumUtils:
                     continue
                 checked_addresses.append(smart_contract)
 
-                contract_object = self.w3.eth.contract(address=Web3.toChecksumAddress(smart_contract), abi=token_contract_abi)
+                contract_object = self.get_smart_contract(smart_contract, event_type=event_type)
 
                 if contract_object is None:
-                    # logging.warning(f"No ABI found for address {smart_contract}")
                     continue
 
                 # Decode any matching logs
