@@ -1,6 +1,7 @@
 import json
 import logging
 
+from typing import Union, List, Dict
 from web3 import Web3
 
 from blacklist import BufferedDictBlacklist
@@ -56,16 +57,18 @@ class HaircutPolicy(BlacklistPolicy):
         transfer_events += internal_transactions
 
         # dicts to store a local balance and the temporary blacklisting status while processing the transaction logs
-        temp_balances = {}
+        temp_balances: Dict[Dict[Union[int, List]]] = {}
         temp_blacklist = {}
 
         # if ETH is transferred with the transaction, adjust temporary balances and blacklist accordingly
         if transaction["value"] > 0:
             for account in sender, receiver:
-                temp_balances[account] = {}
-                temp_balances[account]["ETH"] = self.get_balance(account, "ETH", self._current_block)
+                temp_balances[account] = {"ETH": 0}
+                temp_balances[account]["fetched"] = []
 
                 if self.is_blacklisted(address=account, currency="ETH"):
+                    temp_balances[account]["ETH"] = self.get_balance(account, "ETH", self._current_block)
+                    temp_balances[account]["fetched"].append("ETH")
                     temp_blacklist[account] = {"ETH": self.get_blacklist_value(account, "ETH")}
 
             # update temp blacklist
@@ -105,7 +108,9 @@ class HaircutPolicy(BlacklistPolicy):
                 if account not in temp_balances:
                     temp_balances[account] = {}
                 if currency not in temp_balances[account]:
-                    temp_balances[account][currency] = self.get_balance(account, currency, self._current_block)
+                    temp_balances[account][currency] = 0
+                    if "fetched" not in temp_balances[account]:
+                        temp_balances[account]["fetched"] = []
 
                 # add the account to the temp blacklist if it is on the full blacklist
                 if self.is_blacklisted(account, currency):
@@ -126,6 +131,9 @@ class HaircutPolicy(BlacklistPolicy):
         # once the transfer has been processed, execute all resulting changes
         for account in temp_blacklist:
             for currency in temp_blacklist[account]:
+                # ignore fetched field
+                if currency == "fetched":
+                    continue
                 if self.is_blacklisted(account, currency):
                     difference = temp_blacklist[account][currency] - self.get_blacklist_value(account, currency)
                     if difference:
@@ -170,11 +178,17 @@ class HaircutPolicy(BlacklistPolicy):
         # if the sender or currency are not blacklisted, nothing happens
         # this assumes the logs are checked in the correct order
         if sender in temp_blacklist and currency in temp_blacklist[sender] and temp_blacklist[sender][currency] > 0:
+            # fetch sender balance
+            if currency not in temp_balances[sender]["fetched"]:
+                temp_balances[sender][currency] += self.get_balance(sender, currency, self._current_block)
+                temp_balances[sender]["fetched"].append(currency)
+
             if temp_balances[sender][currency] == 0:
                 if temp_blacklist[sender][currency] > 1000:
-                    self._logger.warning(self._tx_log + f"The temp balance for account {sender} and currency {currency} is 0, but their blacklist value is {temp_blacklist[sender][currency]}.")
+                    self._logger.warning(self._tx_log + f"The temp balance for account {sender} and currency {currency} is 0, but their temp blacklist value is {temp_blacklist[sender][currency]}.")
                 temp_blacklist[sender][currency] = 0
                 return temp_blacklist
+
             taint_proportion = temp_blacklist[sender][currency] / temp_balances[sender][currency]
 
             if taint_proportion > 1:

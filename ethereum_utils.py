@@ -100,7 +100,7 @@ class EthereumUtils:
         else:
             return transactions_with_value
 
-    @functools.lru_cache(2048)
+    @functools.lru_cache(4096)
     def get_smart_contract(self, address, abi: dict = None, event_type: str = None, function_type: str = None):
         if event_type:
             if event_type not in event_abis:
