@@ -12,8 +12,8 @@ null_address = "0x0000000000000000000000000000000000000000"
 
 class HaircutPolicy(BlacklistPolicy):
 
-    def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False):
-        super().__init__(w3, blacklist=BufferedDictBlacklist(), checkpoint_file=checkpoint_file, logging_level=logging_level, log_to_file=log_to_file)
+    def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False, log_to_db=False):
+        super().__init__(w3, blacklist=BufferedDictBlacklist(), checkpoint_file=checkpoint_file, logging_level=logging_level, log_to_file=log_to_file, log_to_db=log_to_db)
 
     def export_blacklist(self, target_file):
         with open(target_file, "w") as outfile:
@@ -67,9 +67,6 @@ class HaircutPolicy(BlacklistPolicy):
         temp_balances: Dict[Dict[Union[int, List]]] = {}
         temp_blacklist = {}
 
-        if transaction["hash"].hex() == "0x2d2c5872f089ac6e3c44db0e415a8df6532eb72e2405f6bb2a7be4e3a6fa7a1e":
-            print("here")
-
         for transfer_event in transfer_events:
             currency = transfer_event["address"]
             transfer_sender = transfer_event['args']['from']
@@ -79,6 +76,7 @@ class HaircutPolicy(BlacklistPolicy):
             if self._eth_utils.is_eth(currency):
                 currency = "ETH"
 
+            # setup for temp_transfer
             for account in transfer_sender, transfer_receiver:
                 # skip null address
                 if account == null_address:
@@ -191,11 +189,12 @@ class HaircutPolicy(BlacklistPolicy):
                 self._logger.warning(self._tx_log + f"Account {sender} has more temp. taint than balance " +
                                      f"({format(temp_blacklist[sender][currency], '.2e')} > {format(temp_balances[sender][currency], '.2e')}). " +
                                      f"Tainting full transaction instead and reducing taint by {format(difference, '.2e')}.")
-                self.save_log("WARNING", "T_TAINT>T_BALANCE", sender, receiver, temp_blacklist[sender][currency], currency, temp_balances[sender][currency])
+                self.save_log("WARNING", "TEMP_TAINT>TEMP_BALANCE", sender, receiver, temp_blacklist[sender][currency], currency, temp_balances[sender][currency])
                 temp_blacklist[sender][currency] -= difference
                 taint_proportion = 1
 
             transferred_amount = int(amount * taint_proportion)
+            self.save_log("DEBUG", "TEMP_TRANSFER", sender, receiver, transferred_amount, currency, amount)
 
             # correct for rounding errors that would increase the total amount of taint
             # by limiting the transferred taint to the sent amount

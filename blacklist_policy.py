@@ -18,7 +18,7 @@ log_database = "data/logs.db"
 
 
 class BlacklistPolicy(ABC):
-    def __init__(self, w3: Web3, checkpoint_file, blacklist: Blacklist, logging_level=logging.INFO, log_to_file=False):
+    def __init__(self, w3: Web3, checkpoint_file, blacklist: Blacklist, logging_level=logging.INFO, log_to_file=False, log_to_db=False):
         self._blacklist: Blacklist = blacklist
         self.w3 = w3
         """ Web3 instance """
@@ -31,6 +31,7 @@ class BlacklistPolicy(ABC):
         self._database = Database(log_database)
         self._database.clear_logs()
         self._current_tx: str = ""
+        self._log_to_db = log_to_db
 
         formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
@@ -229,7 +230,8 @@ class BlacklistPolicy(ABC):
         self.save_log("INFO", "ADD_ALL", None, address, eth_balance, "ETH")
 
     def save_log(self, level: str, event: str, from_account: Optional[str], to_account: Optional[str], amount: Optional[int], currency: Optional[str], amount_2: Optional[int] = None):
-        self._database.save_log(level, datetime.datetime.now(), self._current_tx, event, from_account, to_account, amount, currency, amount_2)
+        if self._log_to_db:
+            self._database.save_log(level, datetime.datetime.now(), self._current_tx, event, from_account, to_account, amount, currency, amount_2)
 
     @abstractmethod
     def transfer_taint(self, from_address, to_address, amount_sent, currency):

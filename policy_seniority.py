@@ -7,9 +7,10 @@ from blacklist_policy import BlacklistPolicy
 
 delayed_write = False
 
+
 class SeniorityPolicy(BlacklistPolicy):
-    def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False):
-        super().__init__(w3, checkpoint_file, BufferedDictBlacklist(), logging_level, log_to_file)
+    def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False, log_to_db=False):
+        super().__init__(w3, checkpoint_file, BufferedDictBlacklist(), logging_level, log_to_file, log_to_db)
 
     def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
         sender = transaction["from"]
@@ -44,8 +45,6 @@ class SeniorityPolicy(BlacklistPolicy):
         transfer_events += internal_transactions
 
         temp_blacklist = {}
-
-
 
     def check_gas_fees(self, transaction_log, transaction, full_block, sender):
         pass
