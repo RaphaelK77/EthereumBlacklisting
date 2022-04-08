@@ -75,31 +75,6 @@ class EthereumUtils:
                                  "value": value}, "address": "ETH", "event": "Internal Transaction"}
         return None
 
-    def get_internal_transactions(self, tx_hash: str, only_internal=True, ignore_eth=True):
-        transactions_with_value = []
-
-        internal_txs = self.w3.parity.trace_transaction(tx_hash)
-
-        if internal_txs is None:
-            raise web3.exceptions.TransactionNotFound("Trying to get internal transactions for an unknown transaction.")
-
-        for tx in internal_txs:
-            if "value" not in tx["action"]:
-                continue
-            value = int(tx["action"]["value"], base=16)
-            # filter out all transactions with 0 value or with the WETH token
-            if value > 0:
-                sender = tx["action"]["from"]
-                receiver = tx["action"]["to"]
-                if not ignore_eth or not self.is_eth(sender) and not self.is_eth(receiver):
-                    transactions_with_value.append({"args": {"from": Web3.toChecksumAddress(sender), "to": Web3.toChecksumAddress(receiver),
-                                                             "value": value}, "address": "ETH", "event": "Internal Transaction"})
-
-        if only_internal:
-            return transactions_with_value[1:]
-        else:
-            return transactions_with_value
-
     @functools.lru_cache(4096)
     def get_smart_contract(self, address, abi: dict = None, event_type: str = None, function_type: str = None):
         if event_type:

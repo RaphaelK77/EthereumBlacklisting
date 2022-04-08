@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import sys
@@ -9,9 +10,11 @@ from web3 import Web3
 
 import utils
 from blacklist import Blacklist
+from database import Database
 from ethereum_utils import EthereumUtils
 
 log_file = "data/blacklist.log"
+log_database = "data/logs.db"
 
 
 class BlacklistPolicy(ABC):
@@ -25,6 +28,9 @@ class BlacklistPolicy(ABC):
         self._eth_utils = EthereumUtils(w3)
         self._current_block = -1
         self._checkpoint_file = checkpoint_file
+        self._database = Database(log_database)
+        self._database.clear_logs()
+        self._current_tx: str = ""
 
         formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
@@ -65,7 +71,7 @@ class BlacklistPolicy(ABC):
         self._logger.info(f"Loading saved data from {file_path}. Last block was {last_block}.")
         return last_block, saved_blacklist
 
-    def check_block(self, block):
+    def check_block(self, block: int):
         full_block = self.w3.eth.get_block(block, full_transactions=True)
         transactions = full_block["transactions"]
         receipts = self._eth_utils.get_block_receipts(block)
@@ -106,6 +112,7 @@ class BlacklistPolicy(ABC):
             self._blacklist.add_to_blacklist(address, currency=currency, amount=amount)
 
         self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
+        self._database.save_log("DEBUG", datetime.datetime.now(), self._current_tx, "ADD", None, address, amount, currency)
 
     def propagate_blacklist(self, start_block, block_amount, load_checkpoint=False):
         start_time = time.time()
@@ -183,6 +190,7 @@ class BlacklistPolicy(ABC):
             self._blacklist.remove_from_blacklist(address, amount, currency)
 
         self._logger.debug(self._tx_log + f"Removed {format(amount, '.2e')} of blacklisted currency {currency} from account {address}.")
+        self._database.save_log("DEBUG", datetime.datetime.now(), self._current_tx, "REMOVE", address, None, abs(amount), currency)
 
     def get_blacklist_metrics(self):
         return self._blacklist.get_metrics()
@@ -216,4 +224,9 @@ class BlacklistPolicy(ABC):
             self.add_to_blacklist(address, amount=eth_balance, currency="ETH")
 
         self._logger.info(f"Added entire account of {address} to the blacklist.")
+        self.save_log("INFO", "ADD_ACCOUNT", None, address, None, None)
         self._logger.info(f"Blacklisted entire balance of {format(eth_balance, '.2e')} wei (ETH) of account {address}")
+        self.save_log("INFO", "ADD_ALL", None, address, eth_balance, "ETH")
+
+    def save_log(self, level: str, event: str, from_account: Optional[str], to_account: Optional[str], amount: Optional[int], currency: Optional[str], amount_2: Optional[int] = None):
+        self._database.save_log(level, datetime.datetime.now(), self._current_tx, event, from_account, to_account, amount, currency, amount_2)

@@ -1,11 +1,29 @@
+import datetime
 import logging
 import sqlite3
+
+from typing import Optional
 
 
 class Database:
     def __init__(self, database_path):
         self.database = sqlite3.connect(database_path)
         self.cursor = self.database.cursor()
+
+    def save_log(self, level: str, time: datetime.datetime, transaction: str, event: str, from_account: Optional[str], to_account: Optional[str], amount: int, currency: str,
+                 amount_2: Optional[int] = None):
+        code = """
+                INSERT INTO log (level, time, tx, event, from_account, to_account, amount, currency, amount_2)
+                VALUES (:level, :time, :tx, :event, :from_account, :to_account, :amount, :currency, :amount_2)
+                """
+        self.cursor.execute(code, {"level": level, "time": str(time), "event": event, "tx": transaction, "amount_2": str(amount_2),
+                                   "from_account": from_account, "to_account": to_account, "amount": str(amount), "currency": currency})
+        self.database.commit()
+
+    def clear_logs(self):
+        code = "DELETE FROM log"
+        self.cursor.execute(code)
+        self.database.commit()
 
     def add_contract(self, address: str, abi: str, block: int):
         code = f"""INSERT INTO contracts (address, abi, last_access)
