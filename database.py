@@ -11,13 +11,13 @@ class Database:
         self.cursor = self.database.cursor()
 
     def save_log(self, level: str, time: datetime.datetime, transaction: str, event: str, from_account: Optional[str], to_account: Optional[str], amount: int, currency: str,
-                 amount_2: Optional[int] = None):
+                 amount_2: Optional[int] = None, message=None):
         code = """
-                INSERT INTO log (level, time, tx, event, from_account, to_account, amount, currency, amount_2)
-                VALUES (:level, :time, :tx, :event, :from_account, :to_account, :amount, :currency, :amount_2)
+                INSERT INTO log (level, time, tx, event, from_account, to_account, amount, currency, amount_2, message)
+                VALUES (:level, :time, :tx, :event, :from_account, :to_account, :amount, :currency, :amount_2, :message)
                 """
         self.cursor.execute(code, {"level": level, "time": str(time), "event": event, "tx": transaction, "amount_2": str(amount_2),
-                                   "from_account": from_account, "to_account": to_account, "amount": str(amount), "currency": currency})
+                                   "from_account": from_account, "to_account": to_account, "amount": str(amount), "currency": currency, "message": message})
         self.database.commit()
 
     def clear_logs(self):

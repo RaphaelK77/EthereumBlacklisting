@@ -229,9 +229,9 @@ class BlacklistPolicy(ABC):
         self._logger.info(f"Blacklisted entire balance of {format(eth_balance, '.2e')} wei (ETH) of account {address}")
         self.save_log("INFO", "ADD_ALL", None, address, eth_balance, "ETH")
 
-    def save_log(self, level: str, event: str, from_account: Optional[str], to_account: Optional[str], amount: Optional[int], currency: Optional[str], amount_2: Optional[int] = None):
+    def save_log(self, level: str, event: str, from_account: Optional[str], to_account: Optional[str], amount: Optional[int], currency: Optional[str], amount_2: Optional[int] = None, message=None):
         if self._log_to_db:
-            self._database.save_log(level, datetime.datetime.now(), self._current_tx, event, from_account, to_account, amount, currency, amount_2)
+            self._database.save_log(level, datetime.datetime.now(), self._current_tx, event, from_account, to_account, amount, currency, amount_2, message)
 
     @abstractmethod
     def transfer_taint(self, from_address, to_address, amount_sent, currency):

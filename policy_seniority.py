@@ -1,5 +1,6 @@
 import logging
 
+from typing import Union
 from web3 import Web3
 
 from blacklist import BufferedDictBlacklist
@@ -9,8 +10,18 @@ delayed_write = False
 
 
 class SeniorityPolicy(BlacklistPolicy):
-    def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False, log_to_db=False):
+    def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False, log_to_db=False, buffered=False):
         super().__init__(w3, checkpoint_file, BufferedDictBlacklist(), logging_level, log_to_file, log_to_db)
+        self._buffered = buffered
+
+    def transfer_taint(self, from_address, to_address, amount_sent, currency):
+        pass
+
+    def add_to_blacklist(self, address: str, amount: int, currency: str, immediately=False):
+        super().add_to_blacklist(address, amount=amount, currency=currency, immediately=not self._buffered)
+
+    def remove_from_blacklist(self, address: str, amount: Union[int, float], currency: str, immediately=False):
+        super().remove_from_blacklist(address, amount, currency, immediately=not self._buffered)
 
     def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
         sender = transaction["from"]
