@@ -55,29 +55,20 @@ class HaircutPolicy(BlacklistPolicy):
         transfer_events = self._eth_utils.get_all_events_of_type_in_tx(transaction_log, ["Transfer"])
 
         # get all internal transactions
-        transfer_events += internal_transactions
+        if internal_transactions and transaction["value"]:
+            if len(internal_transactions) > 1:
+                transfer_events = [internal_transactions[0]] + transfer_events + internal_transactions[1:]
+            else:
+                transfer_events = [internal_transactions[0]] + transfer_events
+        else:
+            transfer_events += internal_transactions
 
         # dicts to store a local balance and the temporary blacklisting status while processing the transaction logs
         temp_balances: Dict[Dict[Union[int, List]]] = {}
         temp_blacklist = {}
 
-        # if ETH is transferred with the transaction, adjust temporary balances and blacklist accordingly
-        if transaction["value"] > 0:
-            for account in sender, receiver:
-                temp_balances[account] = {"ETH": 0}
-                temp_balances[account]["fetched"] = []
-
-                if self.is_blacklisted(address=account, currency="ETH"):
-                    temp_balances[account]["ETH"] = self.get_balance(account, "ETH", self._current_block)
-                    temp_balances[account]["fetched"].append("ETH")
-                    temp_blacklist[account] = {"ETH": self.get_blacklist_value(account, "ETH")}
-
-            # update temp blacklist
-            temp_blacklist = self.temp_transfer(temp_balances, temp_blacklist, sender, receiver, "ETH", transaction["value"])
-
-            # update temp balances
-            temp_balances[sender]["ETH"] -= transaction["value"]
-            temp_balances[receiver]["ETH"] += transaction["value"]
+        if transaction["hash"].hex() == "0x2d2c5872f089ac6e3c44db0e415a8df6532eb72e2405f6bb2a7be4e3a6fa7a1e":
+            print("here")
 
         for transfer_event in transfer_events:
             currency = transfer_event["address"]

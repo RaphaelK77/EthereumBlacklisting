@@ -230,3 +230,7 @@ class BlacklistPolicy(ABC):
 
     def save_log(self, level: str, event: str, from_account: Optional[str], to_account: Optional[str], amount: Optional[int], currency: Optional[str], amount_2: Optional[int] = None):
         self._database.save_log(level, datetime.datetime.now(), self._current_tx, event, from_account, to_account, amount, currency, amount_2)
+
+    @abstractmethod
+    def transfer_taint(self, from_address, to_address, amount_sent, currency):
+        pass
