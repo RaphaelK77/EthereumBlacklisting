@@ -16,6 +16,7 @@ class EthereumUtils:
     def __init__(self, w3: Web3):
         self.w3 = w3
         self.eth_list = ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"]
+        self.null_address = "0x0000000000000000000000000000000000000000"
 
     def _get_token_balance(self, account: str, token_address: str, block: int = None):
         """

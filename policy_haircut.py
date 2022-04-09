@@ -7,9 +7,6 @@ from web3 import Web3
 from blacklist import BufferedDictBlacklist
 from blacklist_policy import BlacklistPolicy
 
-null_address = "0x0000000000000000000000000000000000000000"
-
-
 class HaircutPolicy(BlacklistPolicy):
 
     def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False, log_to_db=False):
@@ -81,21 +78,12 @@ class HaircutPolicy(BlacklistPolicy):
             # setup for temp_transfer
             for account in transfer_sender, transfer_receiver:
                 # skip null address
-                if account == null_address:
+                if account == self._eth_utils.null_address:
                     continue
 
                 # check if "all" flag is set for either sender or receiver, taint all tokens if necessary
                 if currency != "ETH" and self.is_blacklisted(address=account, currency="all"):
-                    # taint entire balance of this token if not
-                    if currency not in self.get_blacklist_value(account, "all"):
-                        entire_balance = self.get_balance(account, currency, self._current_block)
-                        # add token to "all"-list to mark it as done
-                        self.add_currency_to_all(account, currency)
-                        # do not add the token to the blacklist if the balance is 0, 0-values in the blacklist can lead to issues
-                        if entire_balance > 0:
-                            self.add_to_blacklist(address=account, amount=entire_balance, currency=currency, immediately=True)
-                            self._logger.info(self._tx_log + f"Tainted entire balance ({format(entire_balance, '.2e')}) of token {currency} for account {account}.")
-                            self.save_log("INFO", "ADD_ALL", account, None, entire_balance, currency)
+                    self.fully_taint_token(account, currency)
 
                 # add the account to temp balances
                 if account not in temp_balances:
@@ -120,9 +108,9 @@ class HaircutPolicy(BlacklistPolicy):
                 continue
 
             # update temp balances with the amount sent in the current transfer
-            if transfer_sender != null_address:
+            if transfer_sender != self._eth_utils.null_address:
                 temp_balances[transfer_sender][currency] -= amount
-            if transfer_receiver != null_address:
+            if transfer_receiver != self._eth_utils.null_address:
                 temp_balances[transfer_receiver][currency] += amount
 
         # once the transfer has been processed, execute all resulting changes
@@ -222,7 +210,7 @@ class HaircutPolicy(BlacklistPolicy):
             temp_blacklist[sender][currency] -= transferred_amount
 
             # do not transfer taint if receiver is null, since the tokens were burned
-            if receiver == null_address:
+            if receiver == self._eth_utils.null_address:
                 self._logger.info(self._tx_log + f"{format(transferred_amount, '.2e')} of tainted tokens {currency} ({format(amount, '.2e')} total) were burned.")
                 self.save_log("INFO", "BURN", sender, None, transferred_amount, currency, amount_2=amount)
                 return temp_blacklist, False
