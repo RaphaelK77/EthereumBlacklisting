@@ -111,7 +111,7 @@ class BufferedDictBlacklist(Blacklist):
         if immediately:
             self._blacklist[address][currency] -= amount
             if self._blacklist[address][currency] == 0:
-                del self._blacklist[address]
+                del self._blacklist[address][currency]
 
                 if not self._blacklist[address]:
                     del self._blacklist[address]
