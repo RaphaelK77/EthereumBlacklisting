@@ -60,6 +60,12 @@ class BlacklistPolicy(ABC):
 
         self._logger.info(f"Successfully exported blacklist to {file_path}.")
 
+    def export_blacklist(self, target_file):
+        with open(target_file, "w") as outfile:
+            json.dump(self._blacklist.get_blacklist(), outfile)
+
+        self._logger.info(f"Successfully exported blacklist to {target_file}.")
+
     def load_from_checkpoint(self, file_path):
         try:
             with open(file_path, "r") as checkpoint:

@@ -12,12 +12,6 @@ class HaircutPolicy(BlacklistPolicy):
     def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False, log_to_db=False):
         super().__init__(w3, blacklist=BufferedDictBlacklist(), checkpoint_file=checkpoint_file, logging_level=logging_level, log_to_file=log_to_file, log_to_db=log_to_db)
 
-    def export_blacklist(self, target_file):
-        with open(target_file, "w") as outfile:
-            json.dump(self._blacklist.get_blacklist(), outfile)
-
-        self._logger.info(f"Successfully exported blacklist to {target_file}.")
-
     def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
         sender = transaction["from"]
         receiver = transaction["to"]
@@ -245,7 +239,7 @@ class HaircutPolicy(BlacklistPolicy):
         self.remove_from_blacklist(address=from_address, amount=transferred_amount, currency=currency)
 
         # do not transfer taint if receiver is 0, since the tokens were burned
-        if to_address == null_address:
+        if to_address == self._eth_utils.null_address:
             self._logger.info(self._tx_log + f"{format(transferred_amount, '.2e')} of tainted tokens {currency} ({format(amount_sent, '.2e')} total) were burned.")
             return
 
