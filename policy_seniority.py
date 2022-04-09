@@ -11,14 +11,14 @@ delayed_write = False
 
 class SeniorityPolicy(BlacklistPolicy):
     def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False, log_to_db=False, buffered=False):
-        super().__init__(w3, checkpoint_file, BufferedDictBlacklist(), logging_level, log_to_file, log_to_db)
+        super().__init__(w3, checkpoint_file, BufferedDictBlacklist(), logging_level=logging_level, log_to_file=log_to_file, log_to_db=log_to_db)
         self._buffered = buffered
 
     def transfer_taint(self, from_address, to_address, amount_sent, currency):
         transferred_amount = min(amount_sent, self.get_blacklist_value(from_address, currency))
 
         self.remove_from_blacklist(from_address, transferred_amount, currency)
-        if to_address == self._eth_utils.null_address:
+        if to_address == self._eth_utils.null_address or to_address is None:
             self._logger.info(self._tx_log + f"{amount_sent} tokens were burned, of which {transferred_amount} were blacklisted.")
             return
 
@@ -37,24 +37,28 @@ class SeniorityPolicy(BlacklistPolicy):
         sender = transaction["from"]
         receiver = transaction["to"]
 
-        # write changes queued up in the last block
-        if transaction["blockNumber"] > self._current_block >= 0:
+        # write changes queued up in the last block if buffering is enabled
+        if transaction["blockNumber"] > self._current_block >= 0 and self._buffered:
             self._logger.debug(f"Writing changes, since transaction block {transaction['blockNumber']} > current block {self._current_block}...")
             self._blacklist.write_blacklist()
-        self._current_block = transaction["blockNumber"]
 
+        # update progress
+        self._current_block = transaction["blockNumber"]
         self._tx_log = f"Transaction https://etherscan.io/tx/{transaction['hash'].hex()} | "
         self._current_tx = transaction['hash'].hex()
 
         # skip the remaining code if there were no smart contract events
         if not transaction_log["logs"]:
+
             # if any of the sender's ETH is blacklisted, taint any sent ETH
             # (this will be done as part of the transfers if the tx is a smart contract invocation)
             if self.is_blacklisted(sender, "ETH"):
                 if transaction["value"] > 0:
                     # transfer taint from sender to receiver (no need to check for "all", since ETH is tainted immediately)
                     self.transfer_taint(from_address=sender, to_address=receiver, amount_sent=transaction["value"], currency="ETH")
-                # if the sender has any blacklisted ETH, taint the paid gas fees
+
+            # if the sender (still) has any blacklisted ETH, taint the paid gas fees
+            if self.is_blacklisted(sender, "ETH"):
                 self.check_gas_fees(transaction_log, transaction, full_block, sender)
             return
 
@@ -105,7 +109,24 @@ class SeniorityPolicy(BlacklistPolicy):
             self.check_gas_fees(transaction_log, transaction, full_block, sender)
 
     def check_gas_fees(self, transaction_log, transaction, full_block, sender):
-        pass
+        gas_price = transaction["gasPrice"]
+        base_fee = full_block["baseFeePerGas"]
+        gas_used = transaction_log["gasUsed"]
+        miner = full_block["miner"]
+
+        total_fee_paid = gas_price * gas_used
+        paid_to_miner = (gas_price - base_fee) * gas_used
+
+        if self._buffered:
+            # TODO
+            pass
+        else:
+            tainted_fee = min(total_fee_paid, self.get_blacklist_value(sender, "ETH"))
+            self.remove_from_blacklist(sender, tainted_fee, "ETH")
+            tainted_fee_to_miner = min(paid_to_miner, self.get_blacklist_value(sender, "ETH"))
+            self.add_to_blacklist(miner, tainted_fee_to_miner, "ETH")
+
+            self._logger.debug(self._tx_log + f"Fee: Removed {format(tainted_fee, '.2e')} wei taint from {sender}, and transferred {format(tainted_fee_to_miner, '.2e')} wei of which to miner {miner}")
 
     def temp_transfer(self, temp_blacklist, sender, receiver, currency, amount):
         """

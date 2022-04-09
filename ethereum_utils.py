@@ -65,10 +65,17 @@ class EthereumUtils:
         return [utils.format_log_dict(log) for log in self.w3.manager.request_blocking("eth_getBlockReceipts", [block])]
 
     def internal_transaction_to_event(self, internal_tx):
+        """
+        Converts a transaction trace into an event that can be processed by check_transaction.
+        Filters out internal transactions with no value.
+
+        :param internal_tx: transaction trace, result of trace_block
+        :return: internal transaction in event format, None if it does not pass the filter
+        """
         if "value" not in internal_tx["action"] or "to" not in internal_tx["action"] or "from" not in internal_tx["action"]:
             return None
         value = int(internal_tx["action"]["value"], base=16)
-        if value > 0:
+        if value > 0 and "callType" in internal_tx["action"] and internal_tx["action"]["callType"] == "call":
             sender = internal_tx["action"]["from"]
             receiver = internal_tx["action"]["to"]
             if not self.is_eth(sender) and not self.is_eth(receiver):

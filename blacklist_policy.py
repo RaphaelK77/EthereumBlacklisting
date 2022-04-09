@@ -28,10 +28,15 @@ class BlacklistPolicy(ABC):
         self._eth_utils = EthereumUtils(w3)
         self._current_block = -1
         self._checkpoint_file = checkpoint_file
-        self._database = Database(log_database)
-        self._database.clear_logs()
         self._current_tx: str = ""
         self._log_to_db = log_to_db
+
+        # only init database if db logging is enabled
+        if self._log_to_db:
+            self._database = Database(log_database)
+            self._database.clear_logs()
+        else:
+            self._database = None
 
         formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
@@ -87,9 +92,11 @@ class BlacklistPolicy(ABC):
         for transaction, transaction_log in zip(transactions, receipts):
             internal_transactions = []
             while traces:
+                # exclude block rewards
                 if "transactionHash" not in traces[0]:
                     traces.pop(0)
                     continue
+                # find traces matching the current transaction
                 elif traces[0]["transactionHash"] == transaction["hash"].hex():
                     # process internal tx and make it readable by check_transaction
                     internal_transaction_event = self._eth_utils.internal_transaction_to_event(traces.pop(0))

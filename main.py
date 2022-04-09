@@ -409,7 +409,7 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    seniority_policy_test(10, load_checkpoint=False)
+    seniority_policy_test(1000, load_checkpoint=False)
     # haircut_policy_test(1000, load_checkpoint=True)
     # eth_utils.get_internal_transactions("0xc1a808b5232867f15632fc226ebf229505cbffa153fb0e7309131faef938825c")
     # eth_utils.get_internal_transactions("0x5b55f2e94a62ff26d9a4f3fa27b22da533be447377b3a6f73bf1c3edf906edcd")
