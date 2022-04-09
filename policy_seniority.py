@@ -48,7 +48,7 @@ class SeniorityPolicy(BlacklistPolicy):
         self._current_tx = transaction['hash'].hex()
 
         # skip the remaining code if there were no smart contract events
-        if not transaction_log["logs"]:
+        if not transaction_log["logs"] and len(internal_transactions) < 2:
 
             # if any of the sender's ETH is blacklisted, taint any sent ETH
             # (this will be done as part of the transfers if the tx is a smart contract invocation)

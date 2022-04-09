@@ -30,6 +30,7 @@ class BlacklistPolicy(ABC):
         self._checkpoint_file = checkpoint_file
         self._current_tx: str = ""
         self._log_to_db = log_to_db
+        self.log_file = log_file
 
         # only init database if db logging is enabled
         if self._log_to_db:
@@ -46,8 +47,7 @@ class BlacklistPolicy(ABC):
         self._logger.addHandler(console_handler)
 
         if log_to_file:
-            open(log_file, "w").close()
-            file_handler = logging.FileHandler(log_file)
+            file_handler = logging.FileHandler(self.log_file)
             file_handler.setFormatter(formatter)
             file_handler.setLevel(logging.DEBUG)
             self._logger.addHandler(file_handler)
@@ -56,6 +56,9 @@ class BlacklistPolicy(ABC):
     @abstractmethod
     def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
         pass
+
+    def clear_log(self):
+        open(self.log_file, "w").close()
 
     def save_checkpoint(self, file_path):
         data = {"block": self._current_block, "blacklist": self._blacklist.get_blacklist()}
@@ -158,9 +161,16 @@ class BlacklistPolicy(ABC):
 
         if load_checkpoint:
             saved_block, saved_blacklist = self.load_from_checkpoint(self._checkpoint_file)
-            if start_block < saved_block < start_block + block_amount:
+            # only use loaded data if saved block is between start and end block
+            if start_block < saved_block < start_block + block_amount - 1:
                 loop_start_block = saved_block
                 self._blacklist.set_blacklist(saved_blacklist)
+                self._logger.info("Continuing from saved state.")
+            else:
+                self.clear_log()
+                self._logger.info("Saved block is not in the correct range. Starting from start block.")
+        else:
+            self.clear_log()
 
         for i in range(loop_start_block, start_block + block_amount):
             self.check_block(i)
@@ -178,9 +188,10 @@ class BlacklistPolicy(ABC):
                 self.print_blacklisted_amount()
                 self.save_checkpoint(self._checkpoint_file)
 
+        self.save_checkpoint(self._checkpoint_file)
         end_time = time.time()
         self._logger.info(
-            f"Propagation complete. Total time: {utils.format_seconds_as_time(end_time - start_time)}, performance: {format(block_amount / (end_time - start_time) * 60, '.0f')} blocks/min")
+            f"Propagation complete. Total time: {utils.format_seconds_as_time(end_time - start_time)}, performance: {format((block_amount + start_block) - loop_start_block / (end_time - start_time) * 60, '.0f')} blocks/min")
 
     def is_blacklisted(self, address: str, currency: Optional[str] = None):
         return self._blacklist.is_blacklisted(address, currency)
@@ -216,7 +227,7 @@ class BlacklistPolicy(ABC):
             self._blacklist.remove_from_blacklist(address, amount, currency)
 
         self._logger.debug(self._tx_log + f"Removed {format(amount, '.2e')} of blacklisted currency {currency} from account {address}.")
-        self.save_log("DEBUG", datetime.datetime.now(), self._current_tx, "REMOVE", address, None, abs(amount), currency)
+        self.save_log("DEBUG", "REMOVE", address, None, abs(amount), currency)
 
     def get_blacklist_metrics(self):
         return self._blacklist.get_metrics()
