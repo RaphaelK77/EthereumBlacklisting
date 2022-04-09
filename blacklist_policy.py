@@ -138,7 +138,7 @@ class BlacklistPolicy(ABC):
             self._blacklist.add_to_blacklist(address, currency=currency, amount=amount)
 
         self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
-        self._database.save_log("DEBUG", datetime.datetime.now(), self._current_tx, "ADD", None, address, amount, currency)
+        self.save_log("DEBUG", datetime.datetime.now(), self._current_tx, "ADD", None, address, amount, currency)
 
     def propagate_blacklist(self, start_block, block_amount, load_checkpoint=False):
         start_time = time.time()
@@ -173,7 +173,7 @@ class BlacklistPolicy(ABC):
                 self._logger.info(
                     f"{total_blocks_scanned} ({format(total_blocks_scanned / block_amount * 100, '.2f')}%) blocks scanned, " +
                     f" {utils.format_seconds_as_time(elapsed_time)} elapsed ({utils.format_seconds_as_time(blocks_remaining * (elapsed_time / blocks_scanned))} remaining, " +
-                    f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min).")
+                    f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min). Last block: {self._current_block}")
                 print("Blacklisted amounts:")
                 self.print_blacklisted_amount()
                 self.save_checkpoint(self._checkpoint_file)
@@ -216,7 +216,7 @@ class BlacklistPolicy(ABC):
             self._blacklist.remove_from_blacklist(address, amount, currency)
 
         self._logger.debug(self._tx_log + f"Removed {format(amount, '.2e')} of blacklisted currency {currency} from account {address}.")
-        self._database.save_log("DEBUG", datetime.datetime.now(), self._current_tx, "REMOVE", address, None, abs(amount), currency)
+        self.save_log("DEBUG", datetime.datetime.now(), self._current_tx, "REMOVE", address, None, abs(amount), currency)
 
     def get_blacklist_metrics(self):
         return self._blacklist.get_metrics()
