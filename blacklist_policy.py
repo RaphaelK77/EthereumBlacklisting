@@ -191,7 +191,7 @@ class BlacklistPolicy(ABC):
         self.save_checkpoint(self._checkpoint_file)
         end_time = time.time()
         self._logger.info(
-            f"Propagation complete. Total time: {utils.format_seconds_as_time(end_time - start_time)}, performance: {format((block_amount + start_block) - loop_start_block / (end_time - start_time) * 60, '.0f')} blocks/min")
+            f"Propagation complete. Total time: {utils.format_seconds_as_time(end_time - start_time)}, performance: {format(((block_amount + start_block) - loop_start_block) / (end_time - start_time) * 60, '.0f')} blocks/min")
 
     def is_blacklisted(self, address: str, currency: Optional[str] = None):
         return self._blacklist.is_blacklisted(address, currency)
