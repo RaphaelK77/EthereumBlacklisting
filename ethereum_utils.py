@@ -45,6 +45,8 @@ class EthereumUtils:
         return balance
 
     def is_weth(self, address):
+        if address is None:
+            return False
         return Web3.toChecksumAddress(address) == self.WETH
 
     @functools.lru_cache(maxsize=1024)
@@ -129,4 +131,4 @@ class EthereumUtils:
                 for decoded_log in decoded_logs:
                     log_dict[str(decoded_log["logIndex"])] = decoded_log
 
-        return list(log_dict.values())
+        return [log_dict[key] for key in sorted(log_dict)]
