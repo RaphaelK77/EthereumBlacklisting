@@ -129,6 +129,6 @@ class EthereumUtils:
                 decoded_logs = contract_object.events[event_type]().processReceipt(receipt, errors=DISCARD)
 
                 for decoded_log in decoded_logs:
-                    log_dict[str(decoded_log["logIndex"])] = decoded_log
+                    log_dict[decoded_log["logIndex"]] = decoded_log
 
         return [log_dict[key] for key in sorted(log_dict)]

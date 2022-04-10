@@ -119,7 +119,7 @@ class SeniorityPolicy(BlacklistPolicy):
                 self.remove_from_blacklist(dst, transferred_amount, "ETH")
                 self.add_to_blacklist(dst, transferred_amount, self._eth_utils.WETH)
 
-            self._logger.debug(self._tx_log + f"Processed Deposit. Converted {value} ETH of {dst} to WETH.")
+            self._logger.debug(self._tx_log + f"Processed Deposit. Converted {format(value,'.2e')} ETH of {dst} to WETH.")
         elif event["event"] == "Withdrawal":
             src = event["args"]["src"]
             value = event["args"]["wad"]
@@ -142,7 +142,7 @@ class SeniorityPolicy(BlacklistPolicy):
                 self.remove_from_blacklist(src, transferred_amount, self._eth_utils.WETH)
                 self.add_to_blacklist(src, transferred_amount, "ETH")
 
-            self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {value} WETH of {src} to ETH.")
+            self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(value,'.2e')} WETH of {src} to ETH.")
         # Transfer event, incl. internal transactions
         else:
             currency = event["address"]
