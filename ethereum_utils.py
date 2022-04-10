@@ -1,3 +1,4 @@
+import collections
 import functools
 from typing import List
 
@@ -17,6 +18,7 @@ class EthereumUtils:
         self.w3 = w3
         self.eth_list = ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"]
         self.null_address = "0x0000000000000000000000000000000000000000"
+        self.WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 
     def _get_token_balance(self, account: str, token_address: str, block: int = None):
         """
@@ -42,16 +44,13 @@ class EthereumUtils:
 
         return balance
 
+    def is_weth(self, address):
+        return Web3.toChecksumAddress(address) == self.WETH
+
     @functools.lru_cache(maxsize=1024)
     def get_balance(self, account, currency, block):
-        if self.is_eth(currency):
-            total_balance = 0
-            total_balance += self.w3.eth.get_balance(account, block_identifier=block)
-
-            for token in self.eth_list:
-                total_balance += self._get_token_balance(Web3.toChecksumAddress(account), token, block)
-
-            return total_balance
+        if currency == "ETH":
+            return self.w3.eth.get_balance(account, block_identifier=block)
         else:
             return self._get_token_balance(account=account, token_address=currency, block=block)
 
@@ -78,7 +77,8 @@ class EthereumUtils:
         if value > 0 and "callType" in internal_tx["action"] and internal_tx["action"]["callType"] == "call":
             sender = internal_tx["action"]["from"]
             receiver = internal_tx["action"]["to"]
-            if not self.is_eth(sender) and not self.is_eth(receiver):
+            # ignore internal transaction for Deposit and Withdrawal
+            if not self.is_weth(sender) and not self.is_weth(receiver):
                 return {"args": {"from": Web3.toChecksumAddress(sender), "to": Web3.toChecksumAddress(receiver),
                                  "value": value}, "address": "ETH", "event": "Internal Transaction"}
         return None
@@ -104,7 +104,7 @@ class EthereumUtils:
         :param event_types: the type of the events (Transfer, Swap, Deposit, Withdrawal)
         :return: list of decoded logs
         """
-        log_dict = {}
+        log_dict = collections.OrderedDict()
 
         for event_type in event_types:
             checked_addresses = []
