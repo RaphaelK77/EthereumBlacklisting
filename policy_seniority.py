@@ -18,7 +18,7 @@ class SeniorityPolicy(BlacklistPolicy):
         transferred_amount = min(amount_sent, self.get_blacklist_value(from_address, currency))
 
         self.remove_from_blacklist(from_address, transferred_amount, currency)
-        if to_address == self._eth_utils.null_address or to_address is None:
+        if to_address is None or to_address == self._eth_utils.null_address:
             self._logger.info(self._tx_log + f"{amount_sent} tokens were burned, of which {transferred_amount} were blacklisted.")
             return
 
@@ -36,11 +36,6 @@ class SeniorityPolicy(BlacklistPolicy):
     def check_transaction(self, transaction_log: dict, transaction: dict, full_block: list, internal_transactions: list):
         sender = transaction["from"]
         receiver = transaction["to"]
-
-        # write changes queued up in the last block if buffering is enabled
-        if transaction["blockNumber"] > self._current_block >= 0 and self._buffered:
-            self._logger.debug(f"Writing changes, since transaction block {transaction['blockNumber']} > current block {self._current_block}...")
-            self._blacklist.write_blacklist()
 
         # update progress
         self._current_block = transaction["blockNumber"]
@@ -164,10 +159,6 @@ class SeniorityPolicy(BlacklistPolicy):
                 if currency != "ETH" and self.is_blacklisted(address=account, currency="all"):
                     self.fully_taint_token(account, currency)
 
-                # fill temp blacklist and balances
-                if self.is_blacklisted(account, currency):
-                    self.add_to_temp_blacklist(account, currency)
-
                 self.add_to_temp_balances(account, currency)
 
             if self.is_blacklisted(transfer_sender, currency):
@@ -178,7 +169,7 @@ class SeniorityPolicy(BlacklistPolicy):
             if transfer_receiver != self._eth_utils.null_address:
                 self.temp_balances[transfer_receiver][currency] += amount
 
-            self._logger.debug(self._tx_log + f"Transferred {format(amount, '.2e')} temp balance of {currency} from {transfer_sender} to {transfer_receiver} " + info)
+            # self._logger.debug(self._tx_log + f"Transferred {format(amount, '.2e')} temp balance of {currency} from {transfer_sender} to {transfer_receiver} " + info)
 
         return True
 
@@ -191,7 +182,7 @@ class SeniorityPolicy(BlacklistPolicy):
         if currency not in self.temp_balances[account]:
             balance = self.get_balance(account, currency, self._current_block)
             self.temp_balances[account][currency] = balance
-            self._logger.debug(self._tx_log + f"Added {account} with temp balance {format(balance, '.2e')} of {currency} (block {self._current_block}).")
+            # self._logger.debug(self._tx_log + f"Added {account} with temp balance {format(balance, '.2e')} of {currency} (block {self._current_block}).")
 
     def add_to_temp_blacklist(self, account, currency):
         if account not in self.temp_blacklist:

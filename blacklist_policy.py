@@ -121,10 +121,12 @@ class BlacklistPolicy(ABC):
     def get_blacklist(self):
         return self._blacklist.get_blacklist()
 
-    def fully_taint_token(self, account, currency):
+    def fully_taint_token(self, account, currency, overwrite=False, block=None):
+        if block is None:
+            block = self._current_block
         # taint entire balance of this token if not already done
-        if currency not in self.get_blacklist_value(account, "all"):
-            entire_balance = self.get_balance(account, currency, self._current_block)
+        if currency not in self.get_blacklist_value(account, "all") or overwrite:
+            entire_balance = self.get_balance(account, currency, block)
             # add token to "all"-list to mark it as done
             self.add_currency_to_all(account, currency)
             # do not add the token to the blacklist if the balance is 0, 0-values in the blacklist can lead to issues
@@ -142,10 +144,7 @@ class BlacklistPolicy(ABC):
         :param immediately: if true, write operation will not be queued, but executed immediately
         :param amount: amount to be added
         """
-        if immediately:
-            self._blacklist.add_to_blacklist(address, currency=currency, amount=amount, immediately=immediately)
-        else:
-            self._blacklist.add_to_blacklist(address, currency=currency, amount=amount)
+        self._blacklist.add_to_blacklist(address, currency=currency, amount=amount, immediately=immediately)
 
         self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
         self.save_log("DEBUG", "ADD", None, address, amount, currency)
@@ -262,10 +261,10 @@ class BlacklistPolicy(ABC):
 
         # blacklist all ETH
         eth_balance = self.get_balance(account=address, currency="ETH", block=block)
-        if immediately:
-            self.add_to_blacklist(address, amount=eth_balance, currency="ETH", immediately=True)
-        else:
-            self.add_to_blacklist(address, amount=eth_balance, currency="ETH")
+        self.add_to_blacklist(address, amount=eth_balance, currency="ETH", immediately=immediately)
+
+        # blacklist all WETH
+        self.fully_taint_token(address, self._eth_utils.WETH, overwrite=True, block=block)
 
         self._logger.info(f"Added entire account of {address} to the blacklist.")
         self.save_log("INFO", "ADD_ACCOUNT", None, address, None, None)
