@@ -47,6 +47,10 @@ class SeniorityPolicy(BlacklistPolicy):
         self._tx_log = f"Transaction https://etherscan.io/tx/{transaction['hash'].hex()} | "
         self._current_tx = transaction['hash'].hex()
 
+        if transaction_log["status"] == 0:
+            self._logger.debug(self._tx_log + "Execution failed, skipping transaction.")
+            return
+
         # skip the remaining code if there were no smart contract events
         if not transaction_log["logs"] and len(internal_transactions) < 2:
             self.add_to_temp_balances(sender, "ETH")
