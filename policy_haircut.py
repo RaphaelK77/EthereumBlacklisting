@@ -1,11 +1,11 @@
-import json
 import logging
-
 from typing import Union, List, Dict
+
 from web3 import Web3
 
 from blacklist import BufferedDictBlacklist
 from blacklist_policy import BlacklistPolicy
+
 
 class HaircutPolicy(BlacklistPolicy):
 

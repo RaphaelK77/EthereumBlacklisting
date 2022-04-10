@@ -31,6 +31,8 @@ class BlacklistPolicy(ABC):
         self._current_tx: str = ""
         self._log_to_db = log_to_db
         self.log_file = log_file
+        self.temp_balances = None
+        self.temp_blacklist = None
 
         # only init database if db logging is enabled
         if self._log_to_db:
@@ -87,10 +89,15 @@ class BlacklistPolicy(ABC):
         return last_block, saved_blacklist
 
     def check_block(self, block: int):
+        # retrieve all necessary block data
         full_block = self.w3.eth.get_block(block, full_transactions=True)
         transactions = full_block["transactions"]
         receipts = self._eth_utils.get_block_receipts(block)
         traces = self.w3.parity.trace_block(block)
+
+        # clear temp blacklist and balances
+        self.temp_blacklist = {}
+        self.temp_balances = {}
 
         for transaction, transaction_log in zip(transactions, receipts):
             internal_transactions = []
@@ -115,7 +122,7 @@ class BlacklistPolicy(ABC):
         return self._blacklist.get_blacklist()
 
     def fully_taint_token(self, account, currency):
-        # taint entire balance of this token if not
+        # taint entire balance of this token if not already done
         if currency not in self.get_blacklist_value(account, "all"):
             entire_balance = self.get_balance(account, currency, self._current_block)
             # add token to "all"-list to mark it as done
@@ -141,7 +148,7 @@ class BlacklistPolicy(ABC):
             self._blacklist.add_to_blacklist(address, currency=currency, amount=amount)
 
         self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
-        self.save_log("DEBUG", datetime.datetime.now(), self._current_tx, "ADD", None, address, amount, currency)
+        self.save_log("DEBUG", "ADD", None, address, amount, currency)
 
     def propagate_blacklist(self, start_block, block_amount, load_checkpoint=False):
         start_time = time.time()
