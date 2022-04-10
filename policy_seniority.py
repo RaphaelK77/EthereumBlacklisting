@@ -161,9 +161,11 @@ class SeniorityPolicy(BlacklistPolicy):
 
                 self.add_to_temp_balances(account, currency)
 
+            # if the sender is blacklisted, transfer taint to receiver
             if self.is_blacklisted(transfer_sender, currency):
                 self.transfer_taint(transfer_sender, transfer_receiver, amount, currency)
 
+            # update balances
             if transfer_sender != self._eth_utils.null_address:
                 self.temp_balances[transfer_sender][currency] -= amount
             if transfer_receiver != self._eth_utils.null_address:

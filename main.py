@@ -357,15 +357,15 @@ def haircut_policy_test(block_number, load_checkpoint):
     blacklist_policy.print_blacklisted_amount()
 
 
-def seniority_policy_test(block_number, load_checkpoint):
+def seniority_policy_test(start_block, block_number, load_checkpoint):
     blacklist_policy = SeniorityPolicy(w3, checkpoint_file="data/blacklist_checkpoint.json", logging_level=logging.INFO, log_to_file=True, log_to_db=False)
-    blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=test_block)
-    blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=test_block)
+    blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=start_block)
+    blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=start_block)
     print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
     print("Amounts:")
     blacklist_policy.print_blacklisted_amount()
 
-    blacklist_policy.propagate_blacklist(test_block, block_number, load_checkpoint=load_checkpoint)
+    blacklist_policy.propagate_blacklist(start_block, block_number, load_checkpoint=load_checkpoint)
 
     blacklist_policy.export_blacklist("data/seniority_blacklist.json")
 
@@ -408,7 +408,7 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    seniority_policy_test(100, load_checkpoint=False)
+    seniority_policy_test(test_block, 100, load_checkpoint=False)
     # haircut_policy_test(1000, load_checkpoint=True)
     # eth_utils.get_internal_transactions("0xc1a808b5232867f15632fc226ebf229505cbffa153fb0e7309131faef938825c")
     # eth_utils.get_internal_transactions("0x5b55f2e94a62ff26d9a4f3fa27b22da533be447377b3a6f73bf1c3edf906edcd")
