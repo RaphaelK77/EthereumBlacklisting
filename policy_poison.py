@@ -44,3 +44,7 @@ class PoisonPolicy(BlacklistPolicy):
 
     def sanity_check(self):
         pass
+
+    def get_temp_balance(self, account, currency) -> int:
+        # overwrite unnecessary function
+        pass

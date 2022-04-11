@@ -56,12 +56,3 @@ class ReversedSeniorityPolicy(BlacklistPolicy):
 
         self._logger.debug(self._tx_log + f"Fee: Removed {format(tainted_fee, '.2e')} wei taint from {sender}, transferred {format(tainted_fee_to_miner, '.2e')} " +
                            f"to miner {miner} and burned {format(tainted_fee - tainted_fee_to_miner, '.2e')}")
-
-    def get_temp_balance(self, account, currency) -> int:
-        if account not in self.temp_balances or currency not in self.temp_balances[account]:
-            self.add_to_temp_balances(account, currency)
-        if currency not in self.temp_balances[account]["fetched"]:
-            self.temp_balances[account][currency] += self.get_balance(account, currency, self._current_block)
-            self.temp_balances[account]["fetched"].append(currency)
-
-        return self.temp_balances[account][currency]

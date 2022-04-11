@@ -449,3 +449,12 @@ class BlacklistPolicy(ABC):
                 balance = self.get_balance(account, currency, self._current_block + 1)
                 if blacklist_value > balance:
                     self._logger.warning(f"Blacklist value {format(blacklist_value, '.2e')} for account {account} and currency {currency} is greater than balance {format(balance, '.2e')}")
+
+    def get_temp_balance(self, account, currency) -> int:
+        if account not in self.temp_balances or currency not in self.temp_balances[account]:
+            self.add_to_temp_balances(account, currency)
+        if currency not in self.temp_balances[account]["fetched"]:
+            self.temp_balances[account][currency] += self.get_balance(account, currency, self._current_block)
+            self.temp_balances[account]["fetched"].append(currency)
+
+        return self.temp_balances[account][currency]

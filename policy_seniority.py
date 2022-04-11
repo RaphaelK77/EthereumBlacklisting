@@ -56,3 +56,7 @@ class SeniorityPolicy(BlacklistPolicy):
     def add_to_temp_balances(self, account, currency, get_balance=False):
         # overwrite unnecessary function
         pass
+
+    def get_temp_balance(self, account, currency) -> int:
+        # overwrite unnecessary function
+        pass
