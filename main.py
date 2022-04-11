@@ -81,7 +81,7 @@ if __name__ == '__main__':
     # ********* TESTING *************
 
     # policy_test(SeniorityPolicy, test_block, 100, load_checkpoint=False)
-    policy_test(HaircutPolicy, test_block, 20, load_checkpoint=False)
+    policy_test(HaircutPolicy, test_block, 1000, load_checkpoint=True)
     # policy_test(ReversedSeniorityPolicy, test_block, 1000, load_checkpoint=True)
     # policy_test(PoisonPolicy, test_block, 500, load_checkpoint=True)
     # haircut_policy_test(1000, load_checkpoint=True)

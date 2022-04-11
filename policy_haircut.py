@@ -13,12 +13,10 @@ class HaircutPolicy(BlacklistPolicy):
         blacklist_value = self.get_blacklist_value(from_address, currency)
         sender_balance = self.get_temp_balance(from_address, currency)
 
-        if sender_balance == 0:
-            taint_proportion = 1
-        else:
-            taint_proportion = blacklist_value / sender_balance
+        taint_proportion = blacklist_value / sender_balance
 
-        transferred_amount = int(amount_sent * taint_proportion)
+        # use multiplication first and then integer division to minimize rounding error
+        transferred_amount = (amount_sent * blacklist_value) // sender_balance
 
         if transferred_amount == 0:
             return 0
@@ -32,7 +30,8 @@ class HaircutPolicy(BlacklistPolicy):
         self.add_to_blacklist(to_address, transferred_amount, currency_2)
 
         if currency == currency_2:
-            self._logger.debug(self._tx_log + f"Transferred {format(transferred_amount, '.2e')} taint of {currency} from {from_address} to {to_address}. Taint proportion was {taint_proportion*100}%")
+            self._logger.debug(
+                self._tx_log + f"Transferred {format(transferred_amount, '.2e')} taint of {currency} from {from_address} to {to_address}. Taint proportion was {taint_proportion * 100}%")
 
         return transferred_amount
 
@@ -50,8 +49,8 @@ class HaircutPolicy(BlacklistPolicy):
 
         taint_proportion = blacklist_value / sender_balance
 
-        tainted_fee = int(total_fee_paid * taint_proportion)
-        tainted_fee_to_miner = int(paid_to_miner * taint_proportion)
+        tainted_fee = (total_fee_paid * blacklist_value) // sender_balance
+        tainted_fee_to_miner = (paid_to_miner * blacklist_value) // sender_balance
 
         self.reduce_temp_balance(sender, "ETH", total_fee_paid)
         self.increase_temp_balance(miner, "ETH", paid_to_miner)
@@ -63,4 +62,4 @@ class HaircutPolicy(BlacklistPolicy):
         self.add_to_blacklist(miner, tainted_fee_to_miner, "ETH")
 
         self._logger.debug(self._tx_log + f"Fee: Removed {format(tainted_fee, '.2e')} wei taint from {sender}, transferred {format(tainted_fee_to_miner, '.2e')} " +
-                           f"to miner {miner} and burned {format(tainted_fee - tainted_fee_to_miner, '.2e')}, taint proportion was {taint_proportion*100}%")
+                           f"to miner {miner} and burned {format(tainted_fee - tainted_fee_to_miner, '.2e')}, taint proportion was {taint_proportion * 100}%")
