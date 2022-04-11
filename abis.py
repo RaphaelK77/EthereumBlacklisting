@@ -60,29 +60,6 @@ function_abis = {
         "stateMutability": "view",
         "type": "function"
     }],
-    "Name+Symbol": [{
-        "constant": True,
-        "inputs": [],
-        "name": "name",
-        "outputs": [{
-            "name": "",
-            "type": "string"
-        }],
-        "payable": False,
-        "stateMutability": "view",
-        "type": "function"
-    }, {
-        "constant": True,
-        "inputs": [],
-        "name": "symbol",
-        "outputs": [{
-            "name": "",
-            "type": "string"
-        }],
-        "payable": False,
-        "stateMutability": "view",
-        "type": "function"
-    }],
     "Tokens": [{
         "inputs": [],
         "name": "token0",

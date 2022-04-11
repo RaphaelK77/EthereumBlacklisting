@@ -34,7 +34,7 @@ class EthereumUtils:
         if block is None:
             block = self.w3.eth.get_block_number()
 
-        contract = self.get_smart_contract(token_address, function_type="BalanceOf")
+        contract = self.get_smart_contract(token_address, function_types=("BalanceOf",))
 
         try:
             balance = contract.functions.balanceOf(account).call({}, block)
@@ -92,15 +92,19 @@ class EthereumUtils:
         return None
 
     @functools.lru_cache(4096)
-    def get_smart_contract(self, address, abi: dict = None, event_type: str = None, function_type: str = None):
-        if event_type:
-            if event_type not in event_abis:
-                return None
-            abi = event_abis[event_type]
-        elif function_type:
-            if function_type not in abis.function_abis:
-                return None
-            abi = abis.function_abis[function_type]
+    def get_smart_contract(self, address, abi: dict = None, event_types: tuple = None, function_types: tuple = None):
+        if abi is None:
+            abi = []
+            if event_types:
+                for event_type in event_types:
+                    if event_type not in abis.event_abis:
+                        raise ValueError(f"Tried to get smart contract with an event type that does not exist ('{event_type}')")
+                    abi.append(abis.event_abis[event_type][0])
+            if function_types:
+                for function_type in function_types:
+                    if function_type not in abis.function_abis:
+                        raise ValueError(f"Tried to get smart contract with a function type that does not exist ('{function_type}')")
+                    abi.append(abis.function_abis[function_type][0])
 
         return self.w3.eth.contract(address=Web3.toChecksumAddress(address), abi=abi)
 
@@ -112,28 +116,28 @@ class EthereumUtils:
         :param event_types: the type of the events (Transfer, Swap, Deposit, Withdrawal)
         :return: list of decoded logs
         """
-        log_dict = collections.OrderedDict()
+        log_dict = {}
+        checked_addresses = []
 
         for event_type in event_types:
-            checked_addresses = []
-
             if event_type not in event_abis:
+                raise ValueError(f"Tried to get all events of an event type that does not exist ('{event_type}')")
+
+        for log in receipt["logs"]:
+
+            smart_contract = log["address"]
+            if smart_contract in checked_addresses:
+                continue
+            checked_addresses.append(smart_contract)
+
+            contract_object = self.get_smart_contract(smart_contract, event_types=tuple(event_types))
+
+            if contract_object is None:
                 continue
 
-            for log in receipt["logs"]:
-                smart_contract = log["address"]
-                if smart_contract in checked_addresses:
-                    continue
-                checked_addresses.append(smart_contract)
-
-                contract_object = self.get_smart_contract(smart_contract, event_type=event_type)
-
-                if contract_object is None:
-                    continue
-
-                # Decode any matching logs
+            # Decode any matching logs
+            for event_type in event_types:
                 decoded_logs = contract_object.events[event_type]().processReceipt(receipt, errors=DISCARD)
-
                 for decoded_log in decoded_logs:
                     log_dict[decoded_log["logIndex"]] = decoded_log
 
@@ -147,7 +151,7 @@ class EthereumUtils:
         :param address: Ethereum address
         :return: (name, symbol) as string if available, else None for each unavailable field
         """
-        contract = self.get_smart_contract(address=Web3.toChecksumAddress(address), function_type="Name+Symbol")
+        contract = self.get_smart_contract(address=Web3.toChecksumAddress(address), function_types=("Name", "Symbol"))
 
         name = None
         symbol = None
