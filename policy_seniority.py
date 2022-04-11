@@ -43,13 +43,18 @@ class SeniorityPolicy(BlacklistPolicy):
         self._current_tx = transaction['hash'].hex()
 
         if transaction_log["status"] == 0:
-            self._logger.debug(self._tx_log + "Execution failed, skipping transaction.")
+            self._logger.debug(self._tx_log + "Smart contract/transaction execution failed, skipping transaction.")
             return
 
         # skip the remaining code if there were no smart contract events
         if not transaction_log["logs"] and len(internal_transactions) < 2:
-            self.add_to_temp_balances(sender, "ETH")
-            self.add_to_temp_balances(receiver, "ETH")
+            # self.add_to_temp_balances(sender, "ETH")
+            # self.add_to_temp_balances(receiver, "ETH")
+            # update temp balances
+            # if sender != self._eth_utils.null_address:
+            #     self.temp_balances[sender]["ETH"] -= transaction["value"]
+            # if receiver != self._eth_utils.null_address:
+            #     self.temp_balances[receiver]["ETH"] += transaction["value"]
 
             # if any of the sender's ETH is blacklisted, taint any sent ETH
             # (this will be done as part of the transfers if the tx is a smart contract invocation)
@@ -84,16 +89,9 @@ class SeniorityPolicy(BlacklistPolicy):
                     self.process_event(internal_transactions.pop(0))
                 internal_transactions.pop(0)
 
-            success = False
-            while not success:
-                success = self.process_event(event)
-                if not success:
-                    if not internal_transactions:
-                        self._logger.error(self._tx_log + f"Unable to establish transaction order.")
-                        exit(-1)
-                    # process internal transactions until success
-                    self.process_event(internal_transactions.pop(0))
+            self.process_event(event)
 
+        # process any remaining internal transactions
         for internal_tx in internal_transactions:
             self.process_event(internal_tx)
 
@@ -112,16 +110,16 @@ class SeniorityPolicy(BlacklistPolicy):
             if not self._eth_utils.is_weth(event["address"]):
                 return True
 
-            self.add_to_temp_balances(dst, "ETH")
-            self.add_to_temp_balances(dst, self._eth_utils.WETH)
-
-            if value > self.temp_balances[dst]["ETH"]:
-                self._logger.warning(self._tx_log + f"Not enough balance ({format(self.temp_balances[dst]['ETH'], '.2e')} ETH) for {dst} " +
-                                   f"to deposit {format(value, '.2e')} ETH. Executing next internal transfer. {info}")
-                return False
-
-            self.temp_balances[dst]["ETH"] -= value
-            self.temp_balances[dst][self._eth_utils.WETH] += value
+            # self.add_to_temp_balances(dst, "ETH")
+            # self.add_to_temp_balances(dst, self._eth_utils.WETH)
+            #
+            # if value > self.temp_balances[dst]["ETH"]:
+            #     self._logger.warning(self._tx_log + f"Not enough balance ({format(self.temp_balances[dst]['ETH'], '.2e')} ETH) for {dst} " +
+            #                        f"to deposit {format(value, '.2e')} ETH. Executing next internal transfer. {info}")
+            #     return False
+            #
+            # self.temp_balances[dst]["ETH"] -= value
+            # self.temp_balances[dst][self._eth_utils.WETH] += value
 
             if self.is_blacklisted(dst, "ETH"):
                 transferred_amount = min(self.get_blacklist_value(dst, "ETH"), value)
@@ -135,16 +133,16 @@ class SeniorityPolicy(BlacklistPolicy):
             if not self._eth_utils.is_weth(event["address"]):
                 return True
 
-            self.add_to_temp_balances(src, "ETH")
-            self.add_to_temp_balances(src, self._eth_utils.WETH)
-
-            if value > self.temp_balances[src][self._eth_utils.WETH]:
-                self._logger.warning(self._tx_log + f"Not enough balance ({format(self.temp_balances[src]['ETH'], '.2e')} WETH) for {src}" +
-                                   f" to withdraw {format(value, '.2e')} WETH. Executing next internal transfer. {info}")
-                return False
-
-            self.temp_balances[src]["ETH"] += value
-            self.temp_balances[src][self._eth_utils.WETH] -= value
+            # self.add_to_temp_balances(src, "ETH")
+            # self.add_to_temp_balances(src, self._eth_utils.WETH)
+            #
+            # if value > self.temp_balances[src][self._eth_utils.WETH]:
+            #     self._logger.warning(self._tx_log + f"Not enough balance ({format(self.temp_balances[src]['ETH'], '.2e')} WETH) for {src}" +
+            #                        f" to withdraw {format(value, '.2e')} WETH. Executing next internal transfer. {info}")
+            #     return False
+            #
+            # self.temp_balances[src]["ETH"] += value
+            # self.temp_balances[src][self._eth_utils.WETH] -= value
 
             if self.is_blacklisted(src, self._eth_utils.WETH):
                 transferred_amount = min(self.get_blacklist_value(src, self._eth_utils.WETH), value)
@@ -169,17 +167,17 @@ class SeniorityPolicy(BlacklistPolicy):
                 if currency != "ETH" and self.is_blacklisted(address=account, currency="all"):
                     self.fully_taint_token(account, currency)
 
-                self.add_to_temp_balances(account, currency)
+                # self.add_to_temp_balances(account, currency)
 
             # if the sender is blacklisted, transfer taint to receiver
             if self.is_blacklisted(transfer_sender, currency):
                 self.transfer_taint(transfer_sender, transfer_receiver, amount, currency)
 
             # update balances
-            if transfer_sender != self._eth_utils.null_address:
-                self.temp_balances[transfer_sender][currency] -= amount
-            if transfer_receiver != self._eth_utils.null_address:
-                self.temp_balances[transfer_receiver][currency] += amount
+            # if transfer_sender != self._eth_utils.null_address:
+            #     self.temp_balances[transfer_sender][currency] -= amount
+            # if transfer_receiver != self._eth_utils.null_address:
+            #     self.temp_balances[transfer_receiver][currency] += amount
 
             # self._logger.debug(self._tx_log + f"Transferred {format(amount, '.2e')} temp balance of {currency} from {transfer_sender} to {transfer_receiver} " + info)
 
@@ -216,10 +214,10 @@ class SeniorityPolicy(BlacklistPolicy):
         tainted_fee_to_miner = min(paid_to_miner, self.get_blacklist_value(sender, "ETH"))
         self.add_to_blacklist(miner, tainted_fee_to_miner, "ETH")
 
-        self.add_to_temp_balances(sender, "ETH")
-        self.temp_balances[sender]["ETH"] -= total_fee_paid
-        self.add_to_temp_balances(miner, "ETH")
-        self.temp_balances[miner]["ETH"] += paid_to_miner
+        # self.add_to_temp_balances(sender, "ETH")
+        # self.temp_balances[sender]["ETH"] -= total_fee_paid
+        # self.add_to_temp_balances(miner, "ETH")
+        # self.temp_balances[miner]["ETH"] += paid_to_miner
 
         self._logger.debug(self._tx_log + f"Fee: Removed {format(tainted_fee, '.2e')} wei taint from {sender}, and transferred {format(tainted_fee_to_miner, '.2e')} wei of which to miner {miner}")
 
