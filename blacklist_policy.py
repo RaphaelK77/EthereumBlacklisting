@@ -4,7 +4,7 @@ import logging
 import sys
 import time
 from abc import abstractmethod, ABC
-from typing import Optional, Union
+from typing import Optional, Union, List, Sequence
 
 from web3 import Web3
 
@@ -31,7 +31,6 @@ class BlacklistPolicy(ABC):
         self._log_to_db = log_to_db
         self.log_file = log_file
         self.temp_balances = None
-        self.temp_blacklist = None
 
         # only init database if db logging is enabled
         if self._log_to_db:
@@ -65,20 +64,27 @@ class BlacklistPolicy(ABC):
         pass
 
     def increase_temp_balance(self, account, currency, amount):
+        if account not in self.temp_balances:
+            self.add_to_temp_balances(account, currency)
         self.temp_balances[account][currency] += amount
 
     def reduce_temp_balance(self, account, currency, amount):
+        if account not in self.temp_balances:
+            self.add_to_temp_balances(account, currency)
         self.temp_balances[account][currency] -= amount
 
-    def add_to_temp_balances(self, account, currency):
+    def add_to_temp_balances(self, account, currency, get_balance=False):
         if account is None:
             return
 
         if account not in self.temp_balances:
             self.temp_balances[account] = {}
         if currency not in self.temp_balances[account]:
-            balance = self.get_balance(account, currency, self._current_block)
-            self.temp_balances[account][currency] = balance
+            if get_balance:
+                balance = self.get_balance(account, currency, self._current_block)
+                self.temp_balances[account][currency] = balance
+            else:
+                self.temp_balances[account][currency] = 0
             # self._logger.debug(self._tx_log + f"Added {account} with temp balance {format(balance, '.2e')} of {currency} (block {self._current_block}).")
 
     def clear_log(self):
@@ -163,15 +169,14 @@ class BlacklistPolicy(ABC):
     def check_block(self, block: int):
         # retrieve all necessary block data
         full_block = self.w3.eth.get_block(block, full_transactions=True)
-        transactions = full_block["transactions"]
+        transactions: Sequence = full_block["transactions"]
         receipts = self._eth_utils.get_block_receipts(block)
         traces = self.w3.parity.trace_block(block)
 
         # update progress
         self._current_block = block
 
-        # clear temp blacklist and balances
-        self.temp_blacklist = {}
+        # clear temp balances
         self.temp_balances = {}
 
         for transaction, transaction_log in zip(transactions, receipts):
@@ -226,13 +231,6 @@ class BlacklistPolicy(ABC):
         if not transaction_log["logs"] and len(internal_transactions) < 2:
             if internal_transactions:
                 self.process_event(internal_transactions[0])
-
-            # if any of the sender's ETH is blacklisted, taint any sent ETH
-            # (this will be done as part of the transfers if the tx is a smart contract invocation)
-            if self.is_blacklisted(sender, "ETH"):
-                if transaction["value"] > 0:
-                    # transfer taint from sender to receiver (no need to check for "all", since ETH is tainted immediately)
-                    self.transfer_taint(from_address=sender, to_address=receiver, amount_sent=transaction["value"], currency="ETH")
 
             # if the sender (still) has any blacklisted ETH, taint the paid gas fees
             if self.is_blacklisted(sender, "ETH"):
@@ -399,3 +397,17 @@ class BlacklistPolicy(ABC):
     @abstractmethod
     def transfer_taint(self, from_address, to_address, amount_sent, currency):
         pass
+
+    def sanity_check(self):
+        full_blacklist = self.get_blacklist()
+
+        if self.is_blacklisted(self._eth_utils.null_address):
+            self._logger.warning(f"Null address is blacklisted. Values: {full_blacklist[self._eth_utils.null_address]}")
+        for account in full_blacklist:
+            for currency in full_blacklist[account]:
+                if currency == "all":
+                    continue
+                blacklist_value = full_blacklist[account][currency]
+                balance = self.get_balance(account, currency, self._current_block + 1)
+                if blacklist_value > balance:
+                    self._logger.warning(f"Blacklist value {format(blacklist_value, '.2e')} for account {account} and currency {currency} is greater than balance {format(balance, '.2e')}")
