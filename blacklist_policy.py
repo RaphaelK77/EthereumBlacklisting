@@ -1,24 +1,21 @@
-import datetime
 import json
 import logging
 import sys
 import time
 from abc import abstractmethod, ABC
-from typing import Optional, Union, List, Sequence
+from typing import Optional, Union, Sequence
 
 from web3 import Web3
 
 import utils
 from blacklist import Blacklist
-from database import Database
 from ethereum_utils import EthereumUtils
 
 log_file = "data/blacklist.log"
-log_database = "data/logs.db"
 
 
 class BlacklistPolicy(ABC):
-    def __init__(self, w3: Web3, checkpoint_file, blacklist: Blacklist, logging_level=logging.INFO, log_to_file=False, log_to_db=False):
+    def __init__(self, w3: Web3, checkpoint_file, blacklist: Blacklist, logging_level=logging.INFO, log_to_file=False):
         self._blacklist: Blacklist = blacklist
         self.w3 = w3
         """ Web3 instance """
@@ -28,16 +25,8 @@ class BlacklistPolicy(ABC):
         self._current_block = -1
         self._checkpoint_file = checkpoint_file
         self._current_tx: str = ""
-        self._log_to_db = log_to_db
         self.log_file = log_file
         self.temp_balances = None
-
-        # only init database if db logging is enabled
-        if self._log_to_db:
-            self._database = Database(log_database)
-            self._database.clear_logs()
-        else:
-            self._database = None
 
         formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
@@ -156,7 +145,8 @@ class BlacklistPolicy(ABC):
         self.save_checkpoint(self._checkpoint_file)
         end_time = time.time()
         self._logger.info(
-            f"Propagation complete. Total time: {utils.format_seconds_as_time(end_time - start_time)}, performance: {format(((block_amount + start_block) - loop_start_block) / (end_time - start_time) * 60, '.0f')} blocks/min")
+            f"Propagation complete. Total time: {utils.format_seconds_as_time(end_time - start_time)}, performance: " +
+            f"{format(((block_amount + start_block) - loop_start_block) / (end_time - start_time) * 60, '.0f')} blocks/min")
 
     def check_block(self, block: int):
         # retrieve all necessary block data
@@ -345,7 +335,6 @@ class BlacklistPolicy(ABC):
             if entire_balance > 0:
                 self.add_to_blacklist(address=account, amount=entire_balance, currency=currency)
                 self._logger.info(self._tx_log + f"Tainted entire balance ({format(entire_balance, '.2e')}) of token {currency} for account {account}.")
-                self.save_log("INFO", "ADD_ALL", account, None, entire_balance, currency)
 
     def add_to_blacklist(self, address: str, amount: int, currency: str):
         """
@@ -358,7 +347,6 @@ class BlacklistPolicy(ABC):
         self._blacklist.add_to_blacklist(address, currency=currency, amount=amount)
 
         self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
-        self.save_log("DEBUG", "ADD", None, address, amount, currency)
 
     def is_blacklisted(self, address: str, currency: Optional[str] = None):
         return self._blacklist.is_blacklisted(address, currency)
@@ -402,7 +390,6 @@ class BlacklistPolicy(ABC):
         self._blacklist.remove_from_blacklist(address, amount, currency)
 
         self._logger.debug(self._tx_log + f"Removed {format(amount, '.2e')} of blacklisted currency {currency} from account {address}.")
-        self.save_log("DEBUG", "REMOVE", address, None, abs(amount), currency)
 
     def get_blacklist_metrics(self):
         return self._blacklist.get_metrics()
@@ -436,10 +423,6 @@ class BlacklistPolicy(ABC):
 
         self._logger.info(f"Added entire account of {address} to the blacklist.")
         self._logger.info(f"Blacklisted entire balance of {format(eth_balance, '.2e')} wei (ETH) of account {address}")
-
-    def save_log(self, level: str, event: str, from_account: Optional[str], to_account: Optional[str], amount: Optional[int], currency: Optional[str], amount_2: Optional[int] = None, message=None):
-        if self._log_to_db:
-            self._database.save_log(level, datetime.datetime.now(), self._current_tx, event, from_account, to_account, amount, currency, amount_2, message)
 
     @abstractmethod
     def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None) -> int:

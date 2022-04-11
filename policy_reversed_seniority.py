@@ -7,8 +7,8 @@ from blacklist_policy import BlacklistPolicy
 
 
 class ReversedSeniorityPolicy(BlacklistPolicy):
-    def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False, log_to_db=False):
-        super().__init__(w3, checkpoint_file, DictBlacklist(), logging_level=logging_level, log_to_file=log_to_file, log_to_db=log_to_db)
+    def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False):
+        super().__init__(w3, checkpoint_file, DictBlacklist(), logging_level=logging_level, log_to_file=log_to_file)
 
     def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None) -> int:
         if currency_2 is None:

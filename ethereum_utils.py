@@ -1,4 +1,3 @@
-import collections
 import functools
 from typing import List, Optional, Tuple
 
@@ -9,7 +8,6 @@ from web3.logs import DISCARD
 
 import abis
 import utils
-
 from abis import event_abis
 
 
@@ -184,3 +182,26 @@ class EthereumUtils:
             self.logger.debug(f"Name and/or Symbol function of smart contract at {address} could does not exist.")
 
         return name, symbol
+
+    def get_swap_tokens(self, contract_address: str):
+        """
+        Gets the addresses of the token pair of a DEX smart contract
+
+        :param contract_address: address of the smart contract
+        :return: token0, token1 / None, None if an error occurs
+        """
+        token_functions_abi = abis.function_abis["Tokens"]
+
+        contract = self.w3.eth.contract(address=Web3.toChecksumAddress(contract_address), abi=token_functions_abi)
+
+        token0 = None
+        token1 = None
+        try:
+            token0 = contract.functions.token0().call({})
+            token1 = contract.functions.token1().call({})
+        except web3.exceptions.BadFunctionCallOutput:
+            self.logger.warning(f"token0 or token1 function for DEX contract at {contract_address} could not be executed.")
+        except web3.exceptions.ContractLogicError:
+            self.logger.warning(f"Smart contract at {contract_address} does not support token0 or token1 functions.")
+
+        return token0, token1

@@ -10,7 +10,7 @@ from blacklist_policy import BlacklistPolicy
 class HaircutPolicy(BlacklistPolicy):
 
     def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False, log_to_db=False):
-        super().__init__(w3, blacklist=DictBlacklist(), checkpoint_file=checkpoint_file, logging_level=logging_level, log_to_file=log_to_file, log_to_db=log_to_db)
+        super().__init__(w3, checkpoint_file=checkpoint_file, blacklist=DictBlacklist(), logging_level=logging_level, log_to_file=log_to_file)
 
     def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
         sender = transaction["from"]
