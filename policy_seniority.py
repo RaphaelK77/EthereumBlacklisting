@@ -74,6 +74,16 @@ class SeniorityPolicy(BlacklistPolicy):
             self.process_event(internal_transactions.pop(0))
 
         for event in events:
+            # ignore deposit and withdrawal events from other addresses than WETH
+            if event["event"] == "Deposit" and self._eth_utils.is_weth(event["address"]):
+                while internal_transactions[0]["event"] != "Deposit":
+                    self.process_event(internal_transactions.pop(0))
+                internal_transactions.pop(0)
+            elif event["event"] == "Withdrawal" and self._eth_utils.is_weth(event["address"]):
+                while internal_transactions[0]["event"] != "Withdrawal":
+                    self.process_event(internal_transactions.pop(0))
+                internal_transactions.pop(0)
+
             success = False
             while not success:
                 success = self.process_event(event)
@@ -106,7 +116,7 @@ class SeniorityPolicy(BlacklistPolicy):
             self.add_to_temp_balances(dst, self._eth_utils.WETH)
 
             if value > self.temp_balances[dst]["ETH"]:
-                self._logger.debug(self._tx_log + f"Not enough balance ({format(self.temp_balances[dst]['ETH'], '.2e')} ETH) for {dst} " +
+                self._logger.warning(self._tx_log + f"Not enough balance ({format(self.temp_balances[dst]['ETH'], '.2e')} ETH) for {dst} " +
                                    f"to deposit {format(value, '.2e')} ETH. Executing next internal transfer. {info}")
                 return False
 
@@ -129,7 +139,7 @@ class SeniorityPolicy(BlacklistPolicy):
             self.add_to_temp_balances(src, self._eth_utils.WETH)
 
             if value > self.temp_balances[src][self._eth_utils.WETH]:
-                self._logger.debug(self._tx_log + f"Not enough balance ({format(self.temp_balances[src]['ETH'], '.2e')} WETH) for {src}" +
+                self._logger.warning(self._tx_log + f"Not enough balance ({format(self.temp_balances[src]['ETH'], '.2e')} WETH) for {src}" +
                                    f" to withdraw {format(value, '.2e')} WETH. Executing next internal transfer. {info}")
                 return False
 

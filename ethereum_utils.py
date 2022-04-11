@@ -79,10 +79,15 @@ class EthereumUtils:
         if value > 0 and "callType" in internal_tx["action"] and internal_tx["action"]["callType"] == "call":
             sender = internal_tx["action"]["from"]
             receiver = internal_tx["action"]["to"]
-            # ignore internal transaction for Deposit and Withdrawal
-            if not self.is_weth(sender) and not self.is_weth(receiver):
-                return {"args": {"from": Web3.toChecksumAddress(sender), "to": Web3.toChecksumAddress(receiver),
-                                 "value": value}, "address": "ETH", "event": "Internal Transaction"}
+
+            # detect Deposit and Withdrawal by the involvement of the WETH token address
+            event_type = "Internal Transaction"
+            if self.is_weth(sender):
+                event_type = "Withdrawal"
+            if self.is_weth(receiver):
+                event_type = "Deposit"
+            return {"args": {"from": Web3.toChecksumAddress(sender), "to": Web3.toChecksumAddress(receiver),
+                             "value": value}, "address": "ETH", "event": event_type}
         return None
 
     @functools.lru_cache(4096)
