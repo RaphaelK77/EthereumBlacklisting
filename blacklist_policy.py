@@ -85,15 +85,6 @@ class BlacklistPolicy(ABC):
         sender = transaction["from"]
         receiver = transaction["to"]
 
-        # update progress
-        self._current_block = transaction["blockNumber"]
-        self._tx_log = f"Transaction https://etherscan.io/tx/{transaction['hash'].hex()} | "
-        self._current_tx = transaction['hash'].hex()
-
-        if transaction_log["status"] == 0:
-            self._logger.debug(self._tx_log + "Smart contract/transaction execution failed, skipping transaction.")
-            return
-
         # skip the remaining code if there were no smart contract events
         if not transaction_log["logs"] and len(internal_transactions) < 2:
             self.add_to_temp_balances(sender, "ETH")
@@ -124,6 +115,9 @@ class BlacklistPolicy(ABC):
         # internal transactions to and from WETH are not recorded, skip it in that case
         if transaction["value"] and not is_weth_transaction:
             # process first internal transaction if the transaction transfers ETH
+            if not internal_transactions:
+                self._logger.error(self._tx_log + f"No internal transactions found for transaction with value {format(transaction['value'], '.2e')}.")
+                exit(-1)
             self.process_event(internal_transactions.pop(0))
 
         for event in events:
@@ -141,6 +135,9 @@ class BlacklistPolicy(ABC):
 
         # process any remaining internal transactions
         for internal_tx in internal_transactions:
+            if internal_tx["event"] == "Deposit" or internal_tx["event"] == "Withdrawal":
+                self._logger.warning(self._tx_log + f"Unaccounted for event of type {internal_tx['event']}.")
+                exit(-1)
             self.process_event(internal_tx)
 
         if self.is_blacklisted(sender, "ETH"):
@@ -182,13 +179,37 @@ class BlacklistPolicy(ABC):
         receipts = self._eth_utils.get_block_receipts(block)
         traces = self.w3.parity.trace_block(block)
 
+        # update progress
+        self._current_block = block
+
         # clear temp blacklist and balances
         self.temp_blacklist = {}
         self.temp_balances = {}
 
         for transaction, transaction_log in zip(transactions, receipts):
             internal_transactions = []
+
+            # update progress
+            self._tx_log = f"Transaction https://etherscan.io/tx/{transaction['hash'].hex()} | "
+            self._current_tx = transaction['hash'].hex()
+
+            # skip failed transactions
+            if transaction_log["status"] == 0:
+                self._logger.debug(self._tx_log + "Smart contract/transaction execution failed, skipping transaction.")
+                # remove all traces for the failed transaction
+                while len(traces) > 0:
+                    if "transactionHash" not in traces[0]:
+                        traces.pop(0)
+                        continue
+                    if traces[0]["transactionHash"] == transaction["hash"].hex():
+                        traces.pop(0)
+                    else:
+                        break
+                continue
+
             while traces:
+                # if transaction["hash"].hex() == "0xeec5da004bbc8a85427288d9ab83dfe1836e9ee83fade5473a7b133b77c5a9a5":
+                #     print("here")
                 # exclude block rewards
                 if "transactionHash" not in traces[0]:
                     traces.pop(0)

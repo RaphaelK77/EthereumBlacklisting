@@ -20,6 +20,8 @@ class EthereumUtils:
         self.null_address = "0x0000000000000000000000000000000000000000"
         self.WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
         self.logger = logger
+        self.current_tx = ""
+        self.reverted_traces = []
 
     def _get_token_balance(self, account: str, token_address: str, block: int = None):
         """
@@ -74,13 +76,27 @@ class EthereumUtils:
         :param internal_tx: transaction trace, result of trace_block
         :return: internal transaction in event format, None if it does not pass the filter
         """
+        if self.current_tx != internal_tx["transactionHash"]:
+            self.current_tx = internal_tx["transactionHash"]
+            self.reverted_traces = []
+
         if "value" not in internal_tx["action"] or "to" not in internal_tx["action"] or "from" not in internal_tx["action"]:
             return None
+        # skip transactions that produced an error
         if "error" in internal_tx:
-            self.logger.debug(f"Skipping internal transaction in {internal_tx['transactionHash']}, since it produced the error '{internal_tx['error']}'.")
+            self.reverted_traces.append(internal_tx["traceAddress"])
+            self.logger.debug(f"Skipping internal transaction in {internal_tx['transactionHash']}, since it produced the error '{internal_tx['error']}' (trace {internal_tx['traceAddress']}).")
             return None
+
         value = int(internal_tx["action"]["value"], base=16)
         if value > 0 and "callType" in internal_tx["action"] and internal_tx["action"]["callType"] == "call":
+            # check if this transaction follows a reverted one, pass it if true (check value first to not clog up log file)
+            for reverted_trace in self.reverted_traces:
+                if all(a == b for a, b in zip(reverted_trace, internal_tx["traceAddress"])):
+                    self.logger.debug(f"Skipping internal transaction in {internal_tx['transactionHash']} with trace {internal_tx['traceAddress']}, " +
+                                      f"since it follows a reverted int. transaction with trace {reverted_trace}.")
+                    return None
+
             sender = internal_tx["action"]["from"]
             receiver = internal_tx["action"]["to"]
 
