@@ -28,12 +28,15 @@ remote_provider = Web3.HTTPProvider(parameters["InfuraLink"])
 # use default Erigon URL for local provider
 local_provider = Web3.HTTPProvider("http://localhost:8545")
 
+log_file = parameters["LogFile"]
+checkpoint_file = parameters["CheckpointFile"]
+
 # read Etherscan API key from config
 ETHERSCAN_API_KEY = parameters["EtherScanKey"]
 
 
 def poison_policy_test():
-    poison = PoisonPolicy(w3_local)
+    poison = PoisonPolicy(w3, checkpoint_file, log_file)
 
     pass
 
@@ -55,7 +58,7 @@ def haircut_policy_test(block_number, load_checkpoint):
 
 
 def seniority_policy_test(start_block, block_number, load_checkpoint):
-    blacklist_policy = SeniorityPolicy(w3, checkpoint_file="data/blacklist_checkpoint.json", logging_level=logging.INFO, log_to_file=True)
+    blacklist_policy = SeniorityPolicy(w3, checkpoint_file=checkpoint_file, log_file=log_file)
     blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=start_block)
     blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=start_block)
     print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
@@ -76,7 +79,7 @@ def seniority_policy_test(start_block, block_number, load_checkpoint):
 
 
 def reversed_seniority_policy_test(start_block, block_number, load_checkpoint):
-    blacklist_policy = ReversedSeniorityPolicy(w3, checkpoint_file="data/blacklist_checkpoint.json", logging_level=logging.INFO, log_to_file=True)
+    blacklist_policy = ReversedSeniorityPolicy(w3, checkpoint_file=checkpoint_file, log_file=log_file)
     blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=start_block)
     blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=start_block)
     print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
@@ -121,5 +124,5 @@ if __name__ == '__main__':
     # ********* TESTING *************
 
     # seniority_policy_test(test_block, 100, load_checkpoint=False)
-    reversed_seniority_policy_test(test_block, 100, load_checkpoint=False)
+    reversed_seniority_policy_test(test_block, 1000, load_checkpoint=True)
     # haircut_policy_test(1000, load_checkpoint=True)

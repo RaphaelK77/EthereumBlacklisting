@@ -11,12 +11,10 @@ import utils
 from blacklist import Blacklist
 from ethereum_utils import EthereumUtils
 
-log_file = "data/blacklist.log"
-
 
 class BlacklistPolicy(ABC):
-    def __init__(self, w3: Web3, checkpoint_file, blacklist: Blacklist, logging_level=logging.INFO, log_to_file=False):
-        self._blacklist: Blacklist = blacklist
+    def __init__(self, w3: Web3, checkpoint_file, log_file=None):
+        self._blacklist: Blacklist = self.init_blacklist()
         self.w3 = w3
         """ Web3 instance """
         self._write_queue = []
@@ -24,25 +22,28 @@ class BlacklistPolicy(ABC):
         self._logger.setLevel(logging.DEBUG)
         self._current_block = -1
         self._checkpoint_file = checkpoint_file
-        self._current_tx: str = ""
-        self.log_file = log_file
+        self._current_tx = ""
         self.temp_balances = None
 
         formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
         console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging_level)
+        console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(formatter)
         self._logger.addHandler(console_handler)
 
-        if log_to_file:
-            file_handler = logging.FileHandler(self.log_file)
+        if log_file:
+            file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(formatter)
             file_handler.setLevel(logging.DEBUG)
             self._logger.addHandler(file_handler)
 
         self._tx_log = ""
         self._eth_utils = EthereumUtils(w3, self._logger)
+
+    @abstractmethod
+    def init_blacklist(self):
+        pass
 
     def increase_temp_balance(self, account, currency, amount):
         if account not in self.temp_balances:

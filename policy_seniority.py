@@ -1,14 +1,10 @@
-import logging
-
-from web3 import Web3
-
 from blacklist import DictBlacklist
 from blacklist_policy import BlacklistPolicy
 
 
 class SeniorityPolicy(BlacklistPolicy):
-    def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False):
-        super().__init__(w3, checkpoint_file, DictBlacklist(), logging_level=logging_level, log_to_file=log_to_file)
+    def init_blacklist(self):
+        return DictBlacklist()
 
     def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None):
         transferred_amount = min(amount_sent, self.get_blacklist_value(from_address, currency))

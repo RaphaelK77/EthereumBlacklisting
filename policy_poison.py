@@ -7,10 +7,6 @@ from blacklist_policy import BlacklistPolicy
 
 class PoisonPolicy(BlacklistPolicy):
 
-    def __init__(self, w3: Web3):
-        super().__init__(w3,,
-        self.blacklist = set()
-
     def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
         sender = transaction_log["from"]
         receiver = transaction_log["to"]
