@@ -1,26 +1,46 @@
-import logging
-
-from web3 import Web3
-
+from blacklist import SetBlacklist
 from blacklist_policy import BlacklistPolicy
 
 
 class PoisonPolicy(BlacklistPolicy):
 
-    def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
-        sender = transaction_log["from"]
-        receiver = transaction_log["to"]
-        logging.debug(f"Checking transaction from {sender} to {receiver}...")
+    def init_blacklist(self):
+        return SetBlacklist()
 
-        # TODO: transfers
+    def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None) -> int:
+        self.add_to_blacklist(to_address, self._current_block, currency="")
+        return 1
 
-        if sender in self.blacklist and receiver is not None:
-            self.add_account_to_blacklist(receiver, )
-            if logging_enabled:
-                logging.info(f"Sender {sender} ({self.blacklist.index(sender) + 1}) is on blacklist, adding receiver {receiver} ({self.blacklist.index(receiver) + 1}).")
+    def check_gas_fees(self, transaction_log, transaction, full_block, sender):
+        miner = full_block["miner"]
 
-    def add_to_blacklist(self, address: str):
-        self.blacklist.add(address)
+        self.add_to_blacklist(miner, self._current_block, currency="")
 
-    def get_blacklisted_amount(self, block):
-        return sum([self.w3.eth.get_balance(account) for account in self.blacklist])
+    def get_blacklisted_amount(self) -> dict:
+        blacklist = self._blacklist.get_blacklist()
+        amounts = {"ETH": 0, self._eth_utils.WETH: 0}
+
+        for account in blacklist:
+            amounts["ETH"] += self.get_balance(account, "ETH", self._current_block + 1)
+            amounts[self._eth_utils.WETH] += self.get_balance(account, self._eth_utils.WETH, self._current_block + 1)
+
+        return amounts
+
+    def increase_temp_balance(self, account, currency, amount):
+        # overwrite unnecessary function
+        pass
+
+    def reduce_temp_balance(self, account, currency, amount):
+        # overwrite unnecessary function
+        pass
+
+    def add_to_temp_balances(self, account, currency, get_balance=False):
+        # overwrite unnecessary function
+        pass
+
+    def fully_taint_token(self, account, currency, overwrite=False, block=None):
+        # overwrite unnecessary function
+        pass
+
+    def sanity_check(self):
+        pass

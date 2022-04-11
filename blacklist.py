@@ -1,7 +1,12 @@
 from abc import ABC, abstractmethod
 
+from typing import Set
+
 
 class Blacklist(ABC):
+    def __init__(self):
+        self._blacklist = None
+
     @abstractmethod
     def add_to_blacklist(self, address: str, currency: str, amount: int):
         pass
@@ -14,9 +19,8 @@ class Blacklist(ABC):
     def get_blacklisted_amount(self):
         pass
 
-    @abstractmethod
     def get_blacklist(self):
-        pass
+        return self._blacklist
 
     @abstractmethod
     def remove_from_blacklist(self, address: str, amount: int, currency: str):
@@ -46,8 +50,48 @@ class Blacklist(ABC):
         pass
 
 
+class SetBlacklist(Blacklist):
+
+    def __init__(self):
+        super().__init__()
+        self._blacklist: Set = set()
+
+    def set_blacklist(self, blacklist: list):
+        self._blacklist = set(blacklist)
+
+    def add_to_blacklist(self, address: str, currency: str = None, amount: int = None):
+        self._blacklist.add(address)
+
+    def is_blacklisted(self, address: str, currency=None):
+        return address in self._blacklist
+
+    def get_blacklisted_amount(self):
+        pass
+
+    def get_blacklist(self):
+        return list(self._blacklist)
+
+    def remove_from_blacklist(self, address: str, amount: int = None, currency: str = None):
+        self._blacklist.remove(address)
+
+    def add_account_to_blacklist(self, account: str, block: int):
+        self._blacklist.add(account)
+
+    def get_account_blacklist_value(self, account: str, currency: int = None):
+        return 0
+
+    def add_currency_to_all(self, account: str, currency: str):
+        pass
+
+    def get_metrics(self):
+        result = {"UniqueTaintedAccounts": len(self._blacklist)}
+
+        return result
+
+
 class DictBlacklist(Blacklist):
     def __init__(self):
+        super().__init__()
         self._blacklist = {}
 
     def set_blacklist(self, blacklist: dict):
@@ -69,9 +113,6 @@ class DictBlacklist(Blacklist):
             self._blacklist[address][currency] = 0
 
         self._blacklist[address][currency] += amount
-
-    def get_blacklist(self):
-        return self._blacklist
 
     def remove_from_blacklist(self, address, amount, currency):
         amount = abs(amount)

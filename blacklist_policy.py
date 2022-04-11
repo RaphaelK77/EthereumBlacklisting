@@ -14,7 +14,6 @@ from ethereum_utils import EthereumUtils
 
 class BlacklistPolicy(ABC):
     def __init__(self, w3: Web3, checkpoint_file, log_file=None):
-        self._blacklist: Blacklist = self.init_blacklist()
         self.w3 = w3
         """ Web3 instance """
         self._write_queue = []
@@ -32,6 +31,8 @@ class BlacklistPolicy(ABC):
         console_handler.setFormatter(formatter)
         self._logger.addHandler(console_handler)
 
+        self.log_file = log_file
+
         if log_file:
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(formatter)
@@ -40,6 +41,8 @@ class BlacklistPolicy(ABC):
 
         self._tx_log = ""
         self._eth_utils = EthereumUtils(w3, self._logger)
+
+        self._blacklist: Blacklist = self.init_blacklist()
 
     @abstractmethod
     def init_blacklist(self):
