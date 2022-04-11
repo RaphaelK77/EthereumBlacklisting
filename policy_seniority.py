@@ -33,71 +33,6 @@ class SeniorityPolicy(BlacklistPolicy):
     def remove_from_blacklist(self, address: str, amount: Union[int, float], currency: str, immediately=False):
         super().remove_from_blacklist(address, amount, currency, immediately=not self._buffered)
 
-    def check_transaction(self, transaction_log: dict, transaction: dict, full_block: list, internal_transactions: list):
-        sender = transaction["from"]
-        receiver = transaction["to"]
-
-        # update progress
-        self._current_block = transaction["blockNumber"]
-        self._tx_log = f"Transaction https://etherscan.io/tx/{transaction['hash'].hex()} | "
-        self._current_tx = transaction['hash'].hex()
-
-        if transaction_log["status"] == 0:
-            self._logger.debug(self._tx_log + "Smart contract/transaction execution failed, skipping transaction.")
-            return
-
-        # skip the remaining code if there were no smart contract events
-        if not transaction_log["logs"] and len(internal_transactions) < 2:
-            # self.add_to_temp_balances(sender, "ETH")
-            # self.add_to_temp_balances(receiver, "ETH")
-            # update temp balances
-            # if sender != self._eth_utils.null_address:
-            #     self.temp_balances[sender]["ETH"] -= transaction["value"]
-            # if receiver != self._eth_utils.null_address:
-            #     self.temp_balances[receiver]["ETH"] += transaction["value"]
-
-            # if any of the sender's ETH is blacklisted, taint any sent ETH
-            # (this will be done as part of the transfers if the tx is a smart contract invocation)
-            if self.is_blacklisted(sender, "ETH"):
-                if transaction["value"] > 0:
-                    # transfer taint from sender to receiver (no need to check for "all", since ETH is tainted immediately)
-                    self.transfer_taint(from_address=sender, to_address=receiver, amount_sent=transaction["value"], currency="ETH")
-
-            # if the sender (still) has any blacklisted ETH, taint the paid gas fees
-            if self.is_blacklisted(sender, "ETH"):
-                self.check_gas_fees(transaction_log, transaction, full_block, sender)
-            return
-
-        # get all transfers
-        events = self._eth_utils.get_all_events_of_type_in_tx(transaction_log, ["Transfer", "Deposit", "Withdrawal"])
-
-        is_weth_transaction = self._eth_utils.is_weth(receiver)
-
-        # internal transactions to and from WETH are not recorded, skip it in that case
-        if transaction["value"] and not is_weth_transaction:
-            # process first internal transaction if the transaction transfers ETH
-            self.process_event(internal_transactions.pop(0))
-
-        for event in events:
-            # ignore deposit and withdrawal events from other addresses than WETH
-            if event["event"] == "Deposit" and self._eth_utils.is_weth(event["address"]):
-                while internal_transactions[0]["event"] != "Deposit":
-                    self.process_event(internal_transactions.pop(0))
-                internal_transactions.pop(0)
-            elif event["event"] == "Withdrawal" and self._eth_utils.is_weth(event["address"]):
-                while internal_transactions[0]["event"] != "Withdrawal":
-                    self.process_event(internal_transactions.pop(0))
-                internal_transactions.pop(0)
-
-            self.process_event(event)
-
-        # process any remaining internal transactions
-        for internal_tx in internal_transactions:
-            self.process_event(internal_tx)
-
-        if self.is_blacklisted(sender, "ETH"):
-            self.check_gas_fees(transaction_log, transaction, full_block, sender)
-
     def process_event(self, event):
         if "logIndex" in event:
             info = f"(Transfer, index {event['logIndex']})"
@@ -126,7 +61,7 @@ class SeniorityPolicy(BlacklistPolicy):
                 self.remove_from_blacklist(dst, transferred_amount, "ETH")
                 self.add_to_blacklist(dst, transferred_amount, self._eth_utils.WETH)
 
-            self._logger.debug(self._tx_log + f"Processed Deposit. Converted {format(value,'.2e')} ETH of {dst} to WETH.")
+            self._logger.debug(self._tx_log + f"Processed Deposit. Converted {format(value, '.2e')} ETH of {dst} to WETH.")
         elif event["event"] == "Withdrawal":
             src = event["args"]["src"]
             value = event["args"]["wad"]
@@ -149,7 +84,7 @@ class SeniorityPolicy(BlacklistPolicy):
                 self.remove_from_blacklist(src, transferred_amount, self._eth_utils.WETH)
                 self.add_to_blacklist(src, transferred_amount, "ETH")
 
-            self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(value,'.2e')} WETH of {src} to ETH.")
+            self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(value, '.2e')} WETH of {src} to ETH.")
         # Transfer event, incl. internal transactions
         else:
             currency = event["address"]
@@ -183,17 +118,6 @@ class SeniorityPolicy(BlacklistPolicy):
 
         return True
 
-    def add_to_temp_balances(self, account, currency):
-        if account is None:
-            return
-
-        if account not in self.temp_balances:
-            self.temp_balances[account] = {}
-        if currency not in self.temp_balances[account]:
-            balance = self.get_balance(account, currency, self._current_block)
-            self.temp_balances[account][currency] = balance
-            # self._logger.debug(self._tx_log + f"Added {account} with temp balance {format(balance, '.2e')} of {currency} (block {self._current_block}).")
-
     def add_to_temp_blacklist(self, account, currency):
         if account not in self.temp_blacklist:
             self.temp_blacklist[account] = {}
@@ -210,8 +134,9 @@ class SeniorityPolicy(BlacklistPolicy):
         paid_to_miner = (gas_price - base_fee) * gas_used
 
         tainted_fee = min(total_fee_paid, self.get_blacklist_value(sender, "ETH"))
-        self.remove_from_blacklist(sender, tainted_fee, "ETH")
         tainted_fee_to_miner = min(paid_to_miner, self.get_blacklist_value(sender, "ETH"))
+
+        self.remove_from_blacklist(sender, tainted_fee, "ETH")
         self.add_to_blacklist(miner, tainted_fee_to_miner, "ETH")
 
         # self.add_to_temp_balances(sender, "ETH")
@@ -258,3 +183,15 @@ class SeniorityPolicy(BlacklistPolicy):
                 balance = self.get_balance(account, currency, self._current_block + 1)
                 if blacklist_value > balance:
                     self._logger.warning(f"Blacklist value {format(blacklist_value, '.2e')} for account {account} and currency {currency} is greater than balance {format(balance, '.2e')}")
+
+    def increase_temp_balance(self, account, currency, amount):
+        # overwrite unnecessary function
+        pass
+
+    def reduce_temp_balance(self, account, currency, amount):
+        # overwrite unnecessary function
+        pass
+
+    def add_to_temp_balances(self, account, currency):
+        # overwrite unnecessary function
+        pass

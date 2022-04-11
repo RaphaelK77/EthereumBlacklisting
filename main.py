@@ -3,7 +3,7 @@ import json
 import logging
 import sys
 from json import JSONDecodeError
-from typing import Union, List, Tuple, Optional, Callable
+from typing import Union
 
 import requests
 import web3.constants
@@ -11,20 +11,14 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3 import constants
 from web3.datastructures import AttributeDict
-from web3.eth import Eth, BaseEth
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
-from web3.logs import DISCARD
-from web3.method import Method, default_root_munger
-from web3.types import BlockIdentifier, TxReceiptBlock, RPCEndpoint
 
 import database as db
 import policy_haircut
-import utils
 from abis import function_abis
 from ethereum_utils import EthereumUtils
 from policy_poison import PoisonPolicy
 from policy_seniority import SeniorityPolicy
-from utils import format_log_dict
 
 # configure logging
 logger = logging.getLogger(__name__)
@@ -134,80 +128,6 @@ def get_contract(address: str, block: int):
     return w3.eth.contract(address=Web3.toChecksumAddress(address), abi=abi)
 
 
-def get_contract_name_symbol_old(address: str, block: int, force_refresh=False):
-    """
-    DEPRECATED Get the name and symbol of a smart contract address
-
-    :param force_refresh: stops database check and overwrites already saved data
-    :param address: ethereum account address
-    :param block: block at which the request was made
-    :return: (name, symbol) or None if address is not a contract
-    """
-    # return from database if already saved
-    if not force_refresh:
-        db_request = database.get_name_symbol(address, block)
-        if db_request:
-            return db_request
-
-    if not is_contract(address):
-        return None
-
-    # get all functions
-    function_list = list_functions_for_contract(address, block)
-
-    # if not supported by contract, use etherscan api
-    if "name" not in function_list:
-        api_call = f"https://api.etherscan.io/api?module=contract&apikey={ETHERSCAN_API_KEY}&action=getsourcecode&address={address}"
-        response = requests.get(api_call)
-        response_json = response.json()
-        if "result" in response_json:
-            if "ContractName" in response_json["result"][0]:
-                name = response_json["result"][0]["ContractName"]
-                database.set_name_symbol(address, name, None)
-                return name, None
-            response_json["result"][0]["SourceCode"] = "..."
-            response_json["result"][0]["ABI"] = "..."
-            logger.warning(f"No name found for contract '{address}'. Response was: {response_json}")
-        logger.warning(f"No result received on EtherScan API call. Response was: {response_json}")
-        return None, None
-
-    contract = get_contract(address, block)
-    name = contract.functions.name().call()
-
-    symbol = None
-    if "symbol" in function_list:
-        symbol = contract.functions.symbol().call()
-
-    database.set_name_symbol(address, name, symbol)
-
-    return name, symbol
-
-
-def get_contract_name_symbol(address: str) -> Tuple[Optional[str], Optional[str]]:
-    """
-    Retrieves the token name and symbol from a token address
-
-    :param address: Ethereum address
-    :return: (name, symbol) as string if available, else None for each unavailable field
-    """
-    name_symbol_abi = function_abis["Name+Symbol"]
-
-    contract = w3.eth.contract(address=Web3.toChecksumAddress(address), abi=name_symbol_abi)
-
-    name = None
-    symbol = None
-
-    try:
-        name = contract.functions.name().call()
-        symbol = contract.functions.symbol().call()
-    except web3.exceptions.BadFunctionCallOutput:
-        logger.debug(f"Name and/or Symbol for {address} could not be retrieved, since it is not a smart contract.")
-    except web3.exceptions.ContractLogicError:
-        logger.debug(f"Name and/or Symbol function of smart contract at {address} could does not exist.")
-
-    return name, symbol
-
-
 def get_invoked_function(transaction_dict: dict = None, transaction_hash: HexBytes = None):
     if transaction_hash:
         transaction_dict = w3.eth.get_transaction(transaction_hash)
@@ -257,7 +177,7 @@ def get_swap_path(transaction, block: int):
         logger.debug(f"No path found in function input {function_input} for transaction {transaction}.")
         return "[could not be determined]"
     for currency_address in function_input["path"]:
-        request = get_contract_name_symbol(currency_address)
+        request = eth_utils.get_contract_name_symbol(currency_address)
         if not request:
             return None
         name, symbol = request
@@ -290,55 +210,6 @@ def get_swap_tokens(contract_address: str):
         logger.warning(f"Smart contract at {contract_address} does not support token0 or token1 functions.")
 
     return token0, token1
-
-
-def get_transaction_logs(receipt: AttributeDict):
-    if not isinstance(receipt, AttributeDict):
-        raise ValueError(f"Type {type(receipt)} is not a legal argument for get_transaction_logs.")
-
-    if not isinstance(receipt["blockHash"], HexBytes):
-        converted_receipt = format_log_dict(receipt)
-        receipt = converted_receipt
-
-    checked_addresses = []
-    _log_dict = {}
-
-    for log in receipt["logs"]:
-        smart_contract = log["address"]
-
-        if smart_contract in checked_addresses:
-            continue
-
-        checked_addresses.append(smart_contract)
-        contract_object = get_contract(address=smart_contract, block=test_block)
-
-        if contract_object is None:
-            logger.warning(f"No ABI found for address {smart_contract}")
-            continue
-
-        receipt_event_signature_hex = Web3.toHex(HexBytes(log["topics"][0]))
-
-        abi_events = [abi for abi in contract_object.abi if abi["type"] == "event"]
-        decoded_logs = []
-
-        for event in abi_events:
-            name = event["name"]
-            inputs = [param["type"] for param in event["inputs"]]
-            inputs = ",".join(inputs)
-            # Hash event signature
-            event_signature_text = f"{name}({inputs})"
-            event_signature_hex = Web3.toHex(Web3.keccak(text=event_signature_text))
-            # Find match between log's event signature and ABI's event signature
-            if event_signature_hex == receipt_event_signature_hex:
-                # Decode matching log
-                # logger.info(f"Decoding log {receipt}")
-                decoded_logs = contract_object.events[event["name"]]().processReceipt(receipt, errors=DISCARD)
-                break
-
-        for _processed_log in decoded_logs:
-            _log_dict[str(_processed_log["logIndex"])] = _processed_log
-
-    return _log_dict
 
 
 def haircut_policy_test(block_number, load_checkpoint):
@@ -392,9 +263,6 @@ if __name__ == '__main__':
     # read database location from config and open it
     database = db.Database(parameters["Database"])
 
-    # init eth_utils object
-    eth_utils = EthereumUtils(w3)
-
     # get the latest block and log it
     latest_block = w3.eth.get_block_number()
     logger.info(f"Latest block: {latest_block}.")
@@ -408,7 +276,7 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    seniority_policy_test(test_block, 100, load_checkpoint=False)
+    seniority_policy_test(test_block, 20, load_checkpoint=False)
     # haircut_policy_test(1000, load_checkpoint=True)
     # eth_utils.get_internal_transactions("0xc1a808b5232867f15632fc226ebf229505cbffa153fb0e7309131faef938825c")
     # eth_utils.get_internal_transactions("0x5b55f2e94a62ff26d9a4f3fa27b22da533be447377b3a6f73bf1c3edf906edcd")

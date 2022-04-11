@@ -1,6 +1,6 @@
 import collections
 import functools
-from typing import List
+from typing import List, Optional, Tuple
 
 import web3.exceptions
 from web3 import Web3
@@ -14,11 +14,12 @@ from abis import event_abis
 
 
 class EthereumUtils:
-    def __init__(self, w3: Web3):
+    def __init__(self, w3: Web3, logger):
         self.w3 = w3
         self.eth_list = ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"]
         self.null_address = "0x0000000000000000000000000000000000000000"
         self.WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+        self.logger = logger
 
     def _get_token_balance(self, account: str, token_address: str, block: int = None):
         """
@@ -137,3 +138,26 @@ class EthereumUtils:
                     log_dict[decoded_log["logIndex"]] = decoded_log
 
         return [log_dict[key] for key in sorted(log_dict)]
+
+    @functools.lru_cache(64)
+    def get_contract_name_symbol(self, address: str) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Retrieves the token name and symbol from a token address
+
+        :param address: Ethereum address
+        :return: (name, symbol) as string if available, else None for each unavailable field
+        """
+        contract = self.get_smart_contract(address=Web3.toChecksumAddress(address), function_type="Name+Symbol")
+
+        name = None
+        symbol = None
+
+        try:
+            name = contract.functions.name().call()
+            symbol = contract.functions.symbol().call()
+        except web3.exceptions.BadFunctionCallOutput:
+            self.logger.debug(f"Name and/or Symbol for {address} could not be retrieved, since it is not a smart contract.")
+        except web3.exceptions.ContractLogicError:
+            self.logger.debug(f"Name and/or Symbol function of smart contract at {address} could does not exist.")
+
+        return name, symbol
