@@ -196,7 +196,7 @@ class BlacklistPolicy(ABC):
                 continue
 
             while traces:
-                # if transaction["hash"].hex() == "0xeec5da004bbc8a85427288d9ab83dfe1836e9ee83fade5473a7b133b77c5a9a5":
+                # if transaction["hash"].hex() == "0x78a7bfd00fbdbef41ea4999a5044a2d7a760ab39236b16c2b672c406ccda5b56":
                 #     print("here")
                 # exclude block rewards
                 if "transactionHash" not in traces[0]:
@@ -224,13 +224,8 @@ class BlacklistPolicy(ABC):
 
         # skip the remaining code if there were no smart contract events
         if not transaction_log["logs"] and len(internal_transactions) < 2:
-            self.add_to_temp_balances(sender, "ETH")
-            self.add_to_temp_balances(receiver, "ETH")
-            # update temp balances
-            if sender != self._eth_utils.null_address:
-                self.reduce_temp_balance(sender, "ETH", transaction["value"])
-            if receiver != self._eth_utils.null_address:
-                self.increase_temp_balance(receiver, "ETH", transaction["value"])
+            if internal_transactions:
+                self.process_event(internal_transactions[0])
 
             # if any of the sender's ETH is blacklisted, taint any sent ETH
             # (this will be done as part of the transfers if the tx is a smart contract invocation)

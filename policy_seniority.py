@@ -45,8 +45,8 @@ class SeniorityPolicy(BlacklistPolicy):
             if not self._eth_utils.is_weth(event["address"]):
                 return True
 
-            # self.add_to_temp_balances(dst, "ETH")
-            # self.add_to_temp_balances(dst, self._eth_utils.WETH)
+            self.add_to_temp_balances(dst, "ETH")
+            self.add_to_temp_balances(dst, self._eth_utils.WETH)
             #
             # if value > self.temp_balances[dst]["ETH"]:
             #     self._logger.warning(self._tx_log + f"Not enough balance ({format(self.temp_balances[dst]['ETH'], '.2e')} ETH) for {dst} " +
@@ -68,8 +68,8 @@ class SeniorityPolicy(BlacklistPolicy):
             if not self._eth_utils.is_weth(event["address"]):
                 return True
 
-            # self.add_to_temp_balances(src, "ETH")
-            # self.add_to_temp_balances(src, self._eth_utils.WETH)
+            self.add_to_temp_balances(src, "ETH")
+            self.add_to_temp_balances(src, self._eth_utils.WETH)
             #
             # if value > self.temp_balances[src][self._eth_utils.WETH]:
             #     self._logger.warning(self._tx_log + f"Not enough balance ({format(self.temp_balances[src]['ETH'], '.2e')} WETH) for {src}" +
