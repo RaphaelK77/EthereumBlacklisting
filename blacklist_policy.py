@@ -25,7 +25,6 @@ class BlacklistPolicy(ABC):
         self._write_queue = []
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(logging.DEBUG)
-        self._eth_utils = EthereumUtils(w3)
         self._current_block = -1
         self._checkpoint_file = checkpoint_file
         self._current_tx: str = ""
@@ -53,11 +52,99 @@ class BlacklistPolicy(ABC):
             file_handler.setFormatter(formatter)
             file_handler.setLevel(logging.DEBUG)
             self._logger.addHandler(file_handler)
+
         self._tx_log = ""
+        self._eth_utils = EthereumUtils(w3, self._logger)
 
     @abstractmethod
-    def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
+    def process_event(self, event):
         pass
+
+    @abstractmethod
+    def check_gas_fees(self, transaction_log, transaction, full_block, sender):
+        pass
+
+    def increase_temp_balance(self, account, currency, amount):
+        self.temp_balances[account][currency] += amount
+
+    def reduce_temp_balance(self, account, currency, amount):
+        self.temp_balances[account][currency] -= amount
+
+    def add_to_temp_balances(self, account, currency):
+        if account is None:
+            return
+
+        if account not in self.temp_balances:
+            self.temp_balances[account] = {}
+        if currency not in self.temp_balances[account]:
+            balance = self.get_balance(account, currency, self._current_block)
+            self.temp_balances[account][currency] = balance
+            # self._logger.debug(self._tx_log + f"Added {account} with temp balance {format(balance, '.2e')} of {currency} (block {self._current_block}).")
+
+    def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
+        sender = transaction["from"]
+        receiver = transaction["to"]
+
+        # update progress
+        self._current_block = transaction["blockNumber"]
+        self._tx_log = f"Transaction https://etherscan.io/tx/{transaction['hash'].hex()} | "
+        self._current_tx = transaction['hash'].hex()
+
+        if transaction_log["status"] == 0:
+            self._logger.debug(self._tx_log + "Smart contract/transaction execution failed, skipping transaction.")
+            return
+
+        # skip the remaining code if there were no smart contract events
+        if not transaction_log["logs"] and len(internal_transactions) < 2:
+            self.add_to_temp_balances(sender, "ETH")
+            self.add_to_temp_balances(receiver, "ETH")
+            # update temp balances
+            if sender != self._eth_utils.null_address:
+                self.reduce_temp_balance(sender, "ETH", transaction["value"])
+            if receiver != self._eth_utils.null_address:
+                self.increase_temp_balance(receiver, "ETH", transaction["value"])
+
+            # if any of the sender's ETH is blacklisted, taint any sent ETH
+            # (this will be done as part of the transfers if the tx is a smart contract invocation)
+            if self.is_blacklisted(sender, "ETH"):
+                if transaction["value"] > 0:
+                    # transfer taint from sender to receiver (no need to check for "all", since ETH is tainted immediately)
+                    self.transfer_taint(from_address=sender, to_address=receiver, amount_sent=transaction["value"], currency="ETH")
+
+            # if the sender (still) has any blacklisted ETH, taint the paid gas fees
+            if self.is_blacklisted(sender, "ETH"):
+                self.check_gas_fees(transaction_log, transaction, full_block, sender)
+            return
+
+        # get all transfers
+        events = self._eth_utils.get_all_events_of_type_in_tx(transaction_log, ["Transfer", "Deposit", "Withdrawal"])
+
+        is_weth_transaction = self._eth_utils.is_weth(receiver)
+
+        # internal transactions to and from WETH are not recorded, skip it in that case
+        if transaction["value"] and not is_weth_transaction:
+            # process first internal transaction if the transaction transfers ETH
+            self.process_event(internal_transactions.pop(0))
+
+        for event in events:
+            # ignore deposit and withdrawal events from other addresses than WETH
+            if event["event"] == "Deposit" and self._eth_utils.is_weth(event["address"]):
+                while internal_transactions[0]["event"] != "Deposit":
+                    self.process_event(internal_transactions.pop(0))
+                internal_transactions.pop(0)
+            elif event["event"] == "Withdrawal" and self._eth_utils.is_weth(event["address"]):
+                while internal_transactions[0]["event"] != "Withdrawal":
+                    self.process_event(internal_transactions.pop(0))
+                internal_transactions.pop(0)
+
+            self.process_event(event)
+
+        # process any remaining internal transactions
+        for internal_tx in internal_transactions:
+            self.process_event(internal_tx)
+
+        if self.is_blacklisted(sender, "ETH"):
+            self.check_gas_fees(transaction_log, transaction, full_block, sender)
 
     def clear_log(self):
         open(self.log_file, "w").close()
@@ -215,7 +302,19 @@ class BlacklistPolicy(ABC):
         blacklisted_amounts = self.get_blacklisted_amount()
         print("{")
         for currency in blacklisted_amounts:
-            print(f"\t{currency}:\t{format(blacklisted_amounts[currency], '.5e')},")
+            currency_address = currency
+            name, symbol = "Ether", "ETH"
+            if currency != "ETH":
+                name, symbol = self._eth_utils.get_contract_name_symbol(currency)
+            else:
+                currency_address = "n/a"
+            if symbol is None:
+                symbol = "n/a"
+            if name is None:
+                name = "n/a"
+            print(f"\t{name: <25}\t{symbol: <5} ({currency_address: <42}):\t{format(blacklisted_amounts[currency], '.5e')},")
+        print(f"\t{'Ether + Wrapped Ether': <25}\t{'ETH + WETH:': <49}" +
+              f"\t{format(blacklisted_amounts['ETH'] + blacklisted_amounts[self._eth_utils.WETH], '.5e')},")
         print("}")
 
     def remove_from_blacklist(self, address: str, amount: Union[int, float], currency: str, immediately=False):
