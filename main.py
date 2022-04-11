@@ -4,7 +4,7 @@ import sys
 
 from web3 import Web3
 
-import policy_haircut
+from policy_haircut import HaircutPolicy
 from policy_poison import PoisonPolicy
 from policy_reversed_seniority import ReversedSeniorityPolicy
 from policy_seniority import SeniorityPolicy
@@ -35,51 +35,8 @@ checkpoint_file = parameters["CheckpointFile"]
 ETHERSCAN_API_KEY = parameters["EtherScanKey"]
 
 
-def poison_policy_test():
-    poison = PoisonPolicy(w3, checkpoint_file, log_file)
-
-    pass
-
-
-def haircut_policy_test(block_number, load_checkpoint):
-    blacklist_policy = policy_haircut.HaircutPolicy(w3, checkpoint_file="data/blacklist_checkpoint.json", logging_level=logging.INFO, log_to_file=True, log_to_db=True)
-    blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=test_block)
-    blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=test_block)
-    print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
-    print("Amounts:")
-    blacklist_policy.print_blacklisted_amount()
-
-    blacklist_policy.propagate_blacklist(test_block, block_number, load_checkpoint=load_checkpoint)
-
-    print(f"Final blacklist: {blacklist_policy.get_blacklist()}")
-    print(blacklist_policy.get_blacklist_metrics())
-    print("Amounts:")
-    blacklist_policy.print_blacklisted_amount()
-
-
-def seniority_policy_test(start_block, block_number, load_checkpoint):
-    blacklist_policy = SeniorityPolicy(w3, checkpoint_file=checkpoint_file, log_file=log_file)
-    blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=start_block)
-    blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=start_block)
-    print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
-    print("Amounts:")
-    blacklist_policy.print_blacklisted_amount()
-
-    blacklist_policy.propagate_blacklist(start_block, block_number, load_checkpoint=load_checkpoint)
-
-    blacklist_policy.export_blacklist("data/seniority_blacklist.json")
-
-    print("***** Sanity Check *****")
-    blacklist_policy.sanity_check()
-    print("Sanity check complete.")
-
-    print(blacklist_policy.get_blacklist_metrics())
-    print("Amounts:")
-    blacklist_policy.print_blacklisted_amount()
-
-
-def reversed_seniority_policy_test(start_block, block_number, load_checkpoint):
-    blacklist_policy = ReversedSeniorityPolicy(w3, checkpoint_file=checkpoint_file, log_file=log_file)
+def policy_test(policy, start_block, block_number, load_checkpoint):
+    blacklist_policy = policy(w3, checkpoint_file=checkpoint_file, log_file=log_file)
     blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=start_block)
     blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=start_block)
     print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
@@ -123,6 +80,8 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    # seniority_policy_test(test_block, 100, load_checkpoint=False)
-    reversed_seniority_policy_test(test_block, 1000, load_checkpoint=True)
+    # policy_test(SeniorityPolicy, test_block, 100, load_checkpoint=False)
+    # policy_test(HaircutPolicy, test_block, 100, load_checkpoint=False)
+    # policy_test(ReversedSeniorityPolicy, test_block, 1000, load_checkpoint=True)
+    # policy_test(PoisonPolicy, test_block, 500, load_checkpoint=True)
     # haircut_policy_test(1000, load_checkpoint=True)
