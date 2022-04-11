@@ -18,9 +18,6 @@ class HaircutPolicy(BlacklistPolicy):
         else:
             taint_proportion = blacklist_value / sender_balance
 
-        if taint_proportion > 1:
-            print("asdf")
-
         transferred_amount = int(amount_sent * taint_proportion)
 
         if transferred_amount == 0:
