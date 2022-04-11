@@ -123,13 +123,15 @@ class BlacklistPolicy(ABC):
         for event in events:
             # ignore deposit and withdrawal events from other addresses than WETH
             if event["event"] == "Deposit" and self._eth_utils.is_weth(event["address"]):
-                while internal_transactions[0]["event"] != "Deposit":
-                    self.process_event(internal_transactions.pop(0))
-                internal_transactions.pop(0)
+                if event["args"]["wad"] > 0:
+                    while internal_transactions[0]["event"] != "Deposit":
+                        self.process_event(internal_transactions.pop(0))
+                    internal_transactions.pop(0)
             elif event["event"] == "Withdrawal" and self._eth_utils.is_weth(event["address"]):
-                while internal_transactions[0]["event"] != "Withdrawal":
-                    self.process_event(internal_transactions.pop(0))
-                internal_transactions.pop(0)
+                if event["args"]["wad"] > 0:
+                    while internal_transactions[0]["event"] != "Withdrawal":
+                        self.process_event(internal_transactions.pop(0))
+                    internal_transactions.pop(0)
 
             self.process_event(event)
 
@@ -224,7 +226,11 @@ class BlacklistPolicy(ABC):
                 else:
                     break
 
-            self.check_transaction(transaction_log=transaction_log, transaction=transaction, full_block=full_block, internal_transactions=internal_transactions)
+            try:
+                self.check_transaction(transaction_log=transaction_log, transaction=transaction, full_block=full_block, internal_transactions=internal_transactions)
+            except Exception as e:
+                self._logger.error(self._tx_log + f"Exception '{e}' occurred while processing transaction.")
+                raise e
 
     def get_blacklist(self):
         return self._blacklist.get_blacklist()
