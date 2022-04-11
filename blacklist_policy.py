@@ -121,11 +121,11 @@ class BlacklistPolicy(ABC):
 
         if block_amount < 20:
             interval = 1
-        elif block_amount < 500:
+        elif block_amount < 200:
             interval = 10
-        elif block_amount < 5000:
+        elif block_amount < 2000:
             interval = 100
-        elif block_amount < 50000:
+        elif block_amount < 20000:
             interval = 1000
         else:
             interval = 10000
@@ -186,20 +186,6 @@ class BlacklistPolicy(ABC):
             self._tx_log = f"Transaction https://etherscan.io/tx/{transaction['hash'].hex()} | "
             self._current_tx = transaction['hash'].hex()
 
-            # skip failed transactions
-            if transaction_log["status"] == 0:
-                self._logger.debug(self._tx_log + "Smart contract/transaction execution failed, skipping transaction.")
-                # remove all traces for the failed transaction
-                while len(traces) > 0:
-                    if "transactionHash" not in traces[0]:
-                        traces.pop(0)
-                        continue
-                    if traces[0]["transactionHash"] == transaction["hash"].hex():
-                        traces.pop(0)
-                    else:
-                        break
-                continue
-
             while traces:
                 # if transaction["hash"].hex() == "0x78a7bfd00fbdbef41ea4999a5044a2d7a760ab39236b16c2b672c406ccda5b56":
                 #     print("here")
@@ -226,6 +212,12 @@ class BlacklistPolicy(ABC):
     def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
         sender = transaction["from"]
         receiver = transaction["to"]
+
+        # skip failed transactions
+        if transaction_log["status"] == 0:
+            self._logger.debug(self._tx_log + "Smart contract/transaction execution failed, only checking gas.")
+            if self.is_blacklisted(sender, "ETH"):
+                self.check_gas_fees(transaction_log, transaction, full_block, sender)
 
         # skip the remaining code if there were no smart contract events
         if not transaction_log["logs"] and len(internal_transactions) < 2:
