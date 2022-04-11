@@ -76,6 +76,9 @@ class EthereumUtils:
         """
         if "value" not in internal_tx["action"] or "to" not in internal_tx["action"] or "from" not in internal_tx["action"]:
             return None
+        if "error" in internal_tx:
+            self.logger.debug(f"Skipping internal transaction in {internal_tx['transactionHash']}, since it produced the error '{internal_tx['error']}'.")
+            return None
         value = int(internal_tx["action"]["value"], base=16)
         if value > 0 and "callType" in internal_tx["action"] and internal_tx["action"]["callType"] == "call":
             sender = internal_tx["action"]["from"]
