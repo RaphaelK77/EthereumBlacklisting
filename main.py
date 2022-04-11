@@ -59,14 +59,8 @@ def get_balance(account: str, block: int):
 
 def poison_test():
     poison = PoisonPolicy(w3_local)
-    poison.add_to_blacklist("0x8C6AE7a05a1dE57582ae2768204276c0ff47ed03")
 
-    print(f"Blacklisted amount start: {poison.get_blacklisted_amount(60000) / web3.constants.WEI_PER_ETHER} ETH")
-
-    poison.propagate_blacklist(50000, 1000)
-
-    print(f"Blacklist length: {len(poison.blacklist)}")
-    print(f"Blacklisted amount: {poison.get_blacklisted_amount(60000) / web3.constants.WEI_PER_ETHER} ETH")
+    pass
 
 
 def is_contract(address: str):

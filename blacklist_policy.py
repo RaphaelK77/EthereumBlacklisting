@@ -55,14 +55,6 @@ class BlacklistPolicy(ABC):
         self._tx_log = ""
         self._eth_utils = EthereumUtils(w3, self._logger)
 
-    @abstractmethod
-    def process_event(self, event):
-        pass
-
-    @abstractmethod
-    def check_gas_fees(self, transaction_log, transaction, full_block, sender):
-        pass
-
     def increase_temp_balance(self, account, currency, amount):
         if account not in self.temp_balances:
             self.add_to_temp_balances(account, currency)
@@ -267,6 +259,74 @@ class BlacklistPolicy(ABC):
         if self.is_blacklisted(sender, "ETH"):
             self.check_gas_fees(transaction_log, transaction, full_block, sender)
 
+    def process_event(self, event):
+        if event["event"] == "Deposit":
+            dst = event["args"]["dst"]
+            value = event["args"]["wad"]
+            if not self._eth_utils.is_weth(event["address"]):
+                return
+
+            self.add_to_temp_balances(dst, "ETH")
+            self.add_to_temp_balances(dst, self._eth_utils.WETH)
+
+            self.reduce_temp_balance(dst, "ETH", value)
+            self.increase_temp_balance(dst, self._eth_utils.WETH, value)
+
+            if self.is_blacklisted(dst, "ETH"):
+                transferred_amount = self.transfer_taint(dst, dst, value, "ETH", self._eth_utils.WETH)
+
+                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(transferred_amount, '.2e')} tainted ({format(value, '.2e')} total) ETH of {dst} to WETH.")
+
+        elif event["event"] == "Withdrawal":
+            src = event["args"]["src"]
+            value = event["args"]["wad"]
+            if not self._eth_utils.is_weth(event["address"]):
+                return
+
+            self.add_to_temp_balances(src, "ETH")
+            self.add_to_temp_balances(src, self._eth_utils.WETH)
+
+            self.increase_temp_balance(src, "ETH", value)
+            self.reduce_temp_balance(src, self._eth_utils.WETH, value)
+
+            if self.is_blacklisted(src, self._eth_utils.WETH):
+                transferred_amount = self.transfer_taint(src, src, value, self._eth_utils.WETH, "ETH")
+
+                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(transferred_amount, '.2e')} tainted ({format(value, '.2e')} total) WETH of {src} to ETH.")
+
+        # Transfer event, incl. internal transactions
+        else:
+            currency = event["address"]
+            if currency != "ETH":
+                currency = Web3.toChecksumAddress(currency)
+            transfer_sender = event['args']['from']
+            transfer_receiver = event['args']['to']
+            amount = event['args']['value']
+
+            for account in transfer_sender, transfer_receiver:
+                # skip null address
+                if account == self._eth_utils.null_address:
+                    continue
+
+                if currency != "ETH" and self.is_blacklisted(address=account, currency="all"):
+                    self.fully_taint_token(account, currency)
+
+                self.add_to_temp_balances(account, currency)
+
+            # if the sender is blacklisted, transfer taint to receiver
+            if self.is_blacklisted(transfer_sender, currency):
+                self.transfer_taint(transfer_sender, transfer_receiver, amount, currency)
+
+            # update balances
+            if transfer_sender != self._eth_utils.null_address:
+                self.reduce_temp_balance(transfer_sender, currency, amount)
+            if transfer_receiver != self._eth_utils.null_address:
+                self.increase_temp_balance(transfer_receiver, currency, amount)
+
+            # self._logger.debug(self._tx_log + f"Transferred {format(amount, '.2e')} temp balance of {currency} from {transfer_sender} to {transfer_receiver} " + info)
+
+        return
+
     def get_blacklist(self):
         return self._blacklist.get_blacklist()
 
@@ -280,20 +340,19 @@ class BlacklistPolicy(ABC):
             self.add_currency_to_all(account, currency)
             # do not add the token to the blacklist if the balance is 0, 0-values in the blacklist can lead to issues
             if entire_balance > 0:
-                self.add_to_blacklist(address=account, amount=entire_balance, currency=currency, immediately=True)
+                self.add_to_blacklist(address=account, amount=entire_balance, currency=currency)
                 self._logger.info(self._tx_log + f"Tainted entire balance ({format(entire_balance, '.2e')}) of token {currency} for account {account}.")
                 self.save_log("INFO", "ADD_ALL", account, None, entire_balance, currency)
 
-    def add_to_blacklist(self, address: str, amount: int, currency: str, immediately=False):
+    def add_to_blacklist(self, address: str, amount: int, currency: str):
         """
         Add the specified amount of the given currency to the given account's blacklisted balance.
 
         :param address: Ethereum address
         :param currency: token address
-        :param immediately: if true, write operation will not be queued, but executed immediately
         :param amount: amount to be added
         """
-        self._blacklist.add_to_blacklist(address, currency=currency, amount=amount, immediately=immediately)
+        self._blacklist.add_to_blacklist(address, currency=currency, amount=amount)
 
         self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
         self.save_log("DEBUG", "ADD", None, address, amount, currency)
@@ -339,7 +398,7 @@ class BlacklistPolicy(ABC):
         :param currency: token address
         """
         if immediately:
-            self._blacklist.remove_from_blacklist(address, amount, currency, immediately)
+            self._blacklist.remove_from_blacklist(address, amount, currency)
         else:
             self._blacklist.remove_from_blacklist(address, amount, currency)
 
@@ -372,7 +431,7 @@ class BlacklistPolicy(ABC):
 
         # blacklist all ETH
         eth_balance = self.get_balance(account=address, currency="ETH", block=block)
-        self.add_to_blacklist(address, amount=eth_balance, currency="ETH", immediately=immediately)
+        self.add_to_blacklist(address, amount=eth_balance, currency="ETH")
 
         # blacklist all WETH
         self.fully_taint_token(address, self._eth_utils.WETH, overwrite=True, block=block)
@@ -387,7 +446,11 @@ class BlacklistPolicy(ABC):
             self._database.save_log(level, datetime.datetime.now(), self._current_tx, event, from_account, to_account, amount, currency, amount_2, message)
 
     @abstractmethod
-    def transfer_taint(self, from_address, to_address, amount_sent, currency):
+    def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None):
+        pass
+
+    @abstractmethod
+    def check_gas_fees(self, transaction_log, transaction, full_block, sender):
         pass
 
     def sanity_check(self):

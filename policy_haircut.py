@@ -3,14 +3,14 @@ from typing import Union, List, Dict
 
 from web3 import Web3
 
-from blacklist import BufferedDictBlacklist
+from blacklist import DictBlacklist
 from blacklist_policy import BlacklistPolicy
 
 
 class HaircutPolicy(BlacklistPolicy):
 
     def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False, log_to_db=False):
-        super().__init__(w3, blacklist=BufferedDictBlacklist(), checkpoint_file=checkpoint_file, logging_level=logging_level, log_to_file=log_to_file, log_to_db=log_to_db)
+        super().__init__(w3, blacklist=DictBlacklist(), checkpoint_file=checkpoint_file, logging_level=logging_level, log_to_file=log_to_file, log_to_db=log_to_db)
 
     def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
         sender = transaction["from"]
@@ -218,7 +218,7 @@ class HaircutPolicy(BlacklistPolicy):
 
         return temp_blacklist, False
 
-    def transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str):
+    def transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str, currency_2=None):
         # check if ETH or WETH, then calculate the amount that should be tainted
         balance = self.get_balance(from_address, currency, self._current_block)
         if balance == 0:
