@@ -70,7 +70,7 @@ class BlacklistPolicy(ABC):
             return
 
         if account not in self.temp_balances:
-            self.temp_balances[account] = {}
+            self.temp_balances[account] = {"fetched": []}
         if currency not in self.temp_balances[account]:
             if get_balance:
                 balance = self.get_balance(account, currency, self._current_block)
@@ -210,6 +210,7 @@ class BlacklistPolicy(ABC):
             self._logger.debug(self._tx_log + "Smart contract/transaction execution failed, only checking gas.")
             if self.is_blacklisted(sender, "ETH"):
                 self.check_gas_fees(transaction_log, transaction, full_block, sender)
+            return
 
         # skip the remaining code if there were no smart contract events
         if not transaction_log["logs"] and len(internal_transactions) < 2:
@@ -388,19 +389,15 @@ class BlacklistPolicy(ABC):
               f"\t{format(blacklisted_amounts['ETH'] + blacklisted_amounts[self._eth_utils.WETH], '.5e')},")
         print("}")
 
-    def remove_from_blacklist(self, address: str, amount: Union[int, float], currency: str, immediately=False):
+    def remove_from_blacklist(self, address: str, amount: Union[int, float], currency: str):
         """
         Remove the specified amount of the given currency from the given account's blacklisted balance.
 
-        :param immediately: write immediately if True, else add to queue
         :param address: Ethereum address
         :param amount: amount to be removed
         :param currency: token address
         """
-        if immediately:
-            self._blacklist.remove_from_blacklist(address, amount, currency)
-        else:
-            self._blacklist.remove_from_blacklist(address, amount, currency)
+        self._blacklist.remove_from_blacklist(address, amount, currency)
 
         self._logger.debug(self._tx_log + f"Removed {format(amount, '.2e')} of blacklisted currency {currency} from account {address}.")
         self.save_log("DEBUG", "REMOVE", address, None, abs(amount), currency)
@@ -418,12 +415,11 @@ class BlacklistPolicy(ABC):
             return 0
         return balance
 
-    def add_account_to_blacklist(self, address: str, block: int, immediately=False):
+    def add_account_to_blacklist(self, address: str, block: int):
         """
         Add an entire account to the blacklist.
         The account dict will hold under "all" every currency already tainted.
 
-        :param immediately: add the account immediately if a buffered dict blacklist is used
         :param address: Ethereum address to blacklist
         :param block: block at which the current balance should be blacklisted
         """

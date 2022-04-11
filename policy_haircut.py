@@ -232,7 +232,7 @@ class HaircutPolicy(BlacklistPolicy):
                                  f"({self.get_blacklist_value(from_address, currency)} > {balance}). " +
                                  f"Tainting full transaction instead and reducing taint by {difference}.")
             self.save_log("WARNING", "TAINT>BALANCE", from_address, to_address, self.get_blacklist_value(from_address, currency), currency, balance)
-            self.remove_from_blacklist(from_address, difference, currency, immediately=True)
+            self.remove_from_blacklist(from_address, difference, currency)
             taint_proportion = 1
 
         transferred_amount = int(amount_sent * taint_proportion)
@@ -249,5 +249,5 @@ class HaircutPolicy(BlacklistPolicy):
         self._logger.debug(self._tx_log + f"Taint proportion was {format(taint_proportion * 100, '.5f')}% of the sent amount {format(amount_sent, '.2e')}, with a balance of {format(balance, '.2e')}")
         self.save_log("DEBUG", "TRANSFER", from_address, to_address, transferred_amount, currency, taint_proportion * 100)
 
-    def add_account_to_blacklist(self, address: str, block: int, immediately=False):
-        super().add_account_to_blacklist(address, block, True)
+    def add_account_to_blacklist(self, address: str, block: int):
+        super().add_account_to_blacklist(address, block)
