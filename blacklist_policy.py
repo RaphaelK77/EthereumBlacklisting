@@ -207,7 +207,7 @@ class BlacklistPolicy(ABC):
 
         # skip failed transactions
         if transaction_log["status"] == 0:
-            self._logger.debug(self._tx_log + "Smart contract/transaction execution failed, only checking gas.")
+            # self._logger.debug(self._tx_log + "Smart contract/transaction execution failed, only checking gas.")
             if self.is_blacklisted(sender, "ETH"):
                 self.check_gas_fees(transaction_log, transaction, full_block, sender)
             return
@@ -276,7 +276,8 @@ class BlacklistPolicy(ABC):
             if self.is_blacklisted(dst, "ETH"):
                 transferred_amount = self.transfer_taint(dst, dst, value, "ETH", self._eth_utils.WETH)
 
-                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(transferred_amount, '.2e')} tainted ({format(value, '.2e')} total) ETH of {dst} to WETH.")
+                if transferred_amount > 0:
+                    self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(transferred_amount, '.2e')} tainted ({format(value, '.2e')} total) ETH of {dst} to WETH.")
 
         elif event["event"] == "Withdrawal":
             src = event["args"]["src"]
@@ -293,7 +294,8 @@ class BlacklistPolicy(ABC):
             if self.is_blacklisted(src, self._eth_utils.WETH):
                 transferred_amount = self.transfer_taint(src, src, value, self._eth_utils.WETH, "ETH")
 
-                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(transferred_amount, '.2e')} tainted ({format(value, '.2e')} total) WETH of {src} to ETH.")
+                if transferred_amount > 0:
+                    self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(transferred_amount, '.2e')} tainted ({format(value, '.2e')} total) WETH of {src} to ETH.")
 
         # Transfer event, incl. internal transactions
         else:
@@ -433,16 +435,14 @@ class BlacklistPolicy(ABC):
         self.fully_taint_token(address, self._eth_utils.WETH, overwrite=True, block=block)
 
         self._logger.info(f"Added entire account of {address} to the blacklist.")
-        self.save_log("INFO", "ADD_ACCOUNT", None, address, None, None)
         self._logger.info(f"Blacklisted entire balance of {format(eth_balance, '.2e')} wei (ETH) of account {address}")
-        self.save_log("INFO", "ADD_ALL", None, address, eth_balance, "ETH")
 
     def save_log(self, level: str, event: str, from_account: Optional[str], to_account: Optional[str], amount: Optional[int], currency: Optional[str], amount_2: Optional[int] = None, message=None):
         if self._log_to_db:
             self._database.save_log(level, datetime.datetime.now(), self._current_tx, event, from_account, to_account, amount, currency, amount_2, message)
 
     @abstractmethod
-    def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None):
+    def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None) -> int:
         pass
 
     @abstractmethod

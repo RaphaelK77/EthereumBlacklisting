@@ -10,7 +10,7 @@ class ReversedSeniorityPolicy(BlacklistPolicy):
     def __init__(self, w3: Web3, checkpoint_file, logging_level=logging.INFO, log_to_file=False, log_to_db=False):
         super().__init__(w3, checkpoint_file, DictBlacklist(), logging_level=logging_level, log_to_file=log_to_file, log_to_db=log_to_db)
 
-    def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None):
+    def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None) -> int:
         if currency_2 is None:
             currency_2 = currency
 
@@ -19,13 +19,13 @@ class ReversedSeniorityPolicy(BlacklistPolicy):
         transferred_amount = max(0, blacklist_value - (sender_balance - amount_sent))
 
         if transferred_amount == 0:
-            return
+            return 0
 
-        self.remove_from_blacklist(from_address, amount_sent, currency)
+        self.remove_from_blacklist(from_address, transferred_amount, currency)
 
         if to_address is None or to_address == self._eth_utils.null_address:
             self._logger.info(self._tx_log + f"{amount_sent} tokens were burned, of which {transferred_amount} were blacklisted.")
-            return
+            return transferred_amount
 
         self.add_to_blacklist(to_address, transferred_amount, currency_2)
 
@@ -58,9 +58,10 @@ class ReversedSeniorityPolicy(BlacklistPolicy):
         self.remove_from_blacklist(sender, tainted_fee, "ETH")
         self.add_to_blacklist(miner, tainted_fee_to_miner, "ETH")
 
-        self._logger.debug(self._tx_log + f"Fee: Removed {format(tainted_fee, '.2e')} wei taint from {sender}, and transferred {format(tainted_fee_to_miner, '.2e')} wei of which to miner {miner}")
+        self._logger.debug(self._tx_log + f"Fee: Removed {format(tainted_fee, '.2e')} wei taint from {sender}, transferred {format(tainted_fee_to_miner, '.2e')} " +
+                           f"to miner {miner} and burned {format(tainted_fee - tainted_fee_to_miner, '.2e')}")
 
-    def get_temp_balance(self, account, currency):
+    def get_temp_balance(self, account, currency) -> int:
         if account not in self.temp_balances or currency not in self.temp_balances[account]:
             self.add_to_temp_balances(account, currency)
         if currency not in self.temp_balances[account]["fetched"]:

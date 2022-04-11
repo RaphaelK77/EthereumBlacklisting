@@ -85,7 +85,7 @@ class EthereumUtils:
         # skip transactions that produced an error
         if "error" in internal_tx:
             self.reverted_traces.append(internal_tx["traceAddress"])
-            self.logger.debug(f"Skipping internal transaction in {internal_tx['transactionHash']}, since it produced the error '{internal_tx['error']}' (trace {internal_tx['traceAddress']}).")
+            # self.logger.debug(f"Skipping internal transaction in {internal_tx['transactionHash']}, since it produced the error '{internal_tx['error']}' (trace {internal_tx['traceAddress']}).")
             return None
 
         value = int(internal_tx["action"]["value"], base=16)
@@ -93,8 +93,8 @@ class EthereumUtils:
             # check if this transaction follows a reverted one, pass it if true (check value first to not clog up log file)
             for reverted_trace in self.reverted_traces:
                 if all(a == b for a, b in zip(reverted_trace, internal_tx["traceAddress"])):
-                    self.logger.debug(f"Skipping internal transaction in {internal_tx['transactionHash']} with trace {internal_tx['traceAddress']}, " +
-                                      f"since it follows a reverted int. transaction with trace {reverted_trace}.")
+                    # self.logger.debug(f"Skipping internal transaction in {internal_tx['transactionHash']} with trace {internal_tx['traceAddress']}, " +
+                    #                   f"since it follows a reverted int. transaction with trace {reverted_trace}.")
                     return None
 
             sender = internal_tx["action"]["from"]
