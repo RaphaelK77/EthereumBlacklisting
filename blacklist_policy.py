@@ -13,7 +13,7 @@ from ethereum_utils import EthereumUtils
 
 
 class BlacklistPolicy(ABC):
-    def __init__(self, w3: Web3, checkpoint_file, log_file=None):
+    def __init__(self, w3: Web3, checkpoint_file, log_file=None, metrics_file=None):
         self.w3 = w3
         """ Web3 instance """
         self._write_queue = []
@@ -23,6 +23,7 @@ class BlacklistPolicy(ABC):
         self._checkpoint_file = checkpoint_file
         self._current_tx = ""
         self.temp_balances = None
+        self.metrics_file = metrics_file
 
         formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
@@ -47,6 +48,16 @@ class BlacklistPolicy(ABC):
     @abstractmethod
     def init_blacklist(self):
         pass
+
+    def export_metrics(self, file_handler, total_eth):
+        if self.metrics_file:
+            unique_accounts = self.get_blacklist_metrics()["UniqueTaintedAccounts"]
+            file_handler.write(f"{self._current_block},{unique_accounts},{format(total_eth, '.5e')}\n")
+
+    def clear_metrics_file(self):
+        if self.metrics_file:
+            with open(self.metrics_file, "w") as out_file:
+                out_file.write("Block,Unique accounts,Total ETH\n")
 
     def increase_temp_balance(self, account, currency, amount):
         if account not in self.temp_balances:
@@ -115,7 +126,7 @@ class BlacklistPolicy(ABC):
         elif block_amount < 2000:
             interval = 100
         elif block_amount < 20000:
-            interval = 1000
+            interval = 500
         else:
             interval = 10000
 
@@ -130,14 +141,21 @@ class BlacklistPolicy(ABC):
                 self._logger.info("Continuing from saved state.")
             else:
                 self.clear_log()
+                self.clear_metrics_file()
                 self._logger.info("Saved block is not in the correct range. Starting from start block.")
         else:
             self.clear_log()
+            self.clear_metrics_file()
+
+        metrics_file_handler = None
+
+        if self.metrics_file:
+            metrics_file_handler = open(self.metrics_file, "a")
 
         for i in range(loop_start_block, start_block + block_amount):
             self.check_block(i)
 
-            if (i - start_block) % interval == 0 and i - loop_start_block > 0:
+            if (i - start_block) % interval == 0 and i - loop_start_block > 0 and i < start_block + block_amount:
                 total_blocks_scanned = i - start_block
                 blocks_scanned = i - loop_start_block
                 elapsed_time = time.time() - start_time
@@ -147,8 +165,14 @@ class BlacklistPolicy(ABC):
                     f" {utils.format_seconds_as_time(elapsed_time)} elapsed ({utils.format_seconds_as_time(blocks_remaining * (elapsed_time / blocks_scanned))} remaining, " +
                     f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min). Last block: {self._current_block}")
                 print("Blacklisted amounts:")
-                self.print_blacklisted_amount()
+                total_eth = self.print_blacklisted_amount()
                 self.save_checkpoint(self._checkpoint_file)
+                self.export_metrics(metrics_file_handler, total_eth)
+
+        print("Blacklisted amounts:")
+        total_eth = self.print_blacklisted_amount()
+        self.export_metrics(metrics_file_handler, total_eth)
+        metrics_file_handler.close()
 
         self.save_checkpoint(self._checkpoint_file)
         end_time = time.time()
@@ -378,9 +402,11 @@ class BlacklistPolicy(ABC):
             if name is None:
                 name = "n/a"
             print(f"\t{name: <25}\t{symbol: <5} ({currency_address: <42}):\t{format(blacklisted_amounts[currency], '.5e')},")
+        total_eth = blacklisted_amounts['ETH'] + blacklisted_amounts[self._eth_utils.WETH]
         print(f"\t{'Ether + Wrapped Ether': <25}\t{'ETH + WETH:': <49}" +
-              f"\t{format(blacklisted_amounts['ETH'] + blacklisted_amounts[self._eth_utils.WETH], '.5e')},")
+              f"\t{format(total_eth, '.5e')},")
         print("}")
+        return total_eth
 
     def remove_from_blacklist(self, address: str, amount: int, currency: str):
         """

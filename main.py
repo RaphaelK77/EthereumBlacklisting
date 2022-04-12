@@ -4,6 +4,7 @@ import sys
 
 from web3 import Web3
 
+from policy_fifo import FIFOPolicy
 from policy_haircut import HaircutPolicy
 from policy_poison import PoisonPolicy
 from policy_reversed_seniority import ReversedSeniorityPolicy
@@ -35,8 +36,8 @@ checkpoint_file = parameters["CheckpointFile"]
 ETHERSCAN_API_KEY = parameters["EtherScanKey"]
 
 
-def policy_test(policy, start_block, block_number, load_checkpoint):
-    blacklist_policy = policy(w3, checkpoint_file=checkpoint_file, log_file=log_file)
+def policy_test(policy, start_block, block_number, load_checkpoint, metrics_file=None):
+    blacklist_policy = policy(w3, checkpoint_file=checkpoint_file, log_file=log_file, metrics_file=metrics_file)
     blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=start_block)
     blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=start_block)
     print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
@@ -73,15 +74,12 @@ if __name__ == '__main__':
 
     # example block and transaction
     test_block = 14394958
-    test_tx = "0x7435b60090e0347fc09bb961e02a4dd5baa59ce0ed83de2f0dffca36243d66f9"
-
-    transfer_test_tx = "0xea2ea4fd6a58cecb2de513bdc8448b8079da9df3dfafd7b01a219b30afdc6ecd"
-    internal_test_tx = "0xd0c2ffc366765cc6414cc07f4b4c2befb263af2dbd62f2ba95bc45ea200b79c6"
 
     # ********* TESTING *************
 
-    policy_test(SeniorityPolicy, test_block, 100, load_checkpoint=False)
-    # policy_test(HaircutPolicy, test_block, 1000, load_checkpoint=True)
-    # policy_test(ReversedSeniorityPolicy, test_block, 1000, load_checkpoint=True)
-    # policy_test(PoisonPolicy, test_block, 500, load_checkpoint=True)
+    policy_test(FIFOPolicy, test_block, 100, load_checkpoint=True, metrics_file="data/fifo.txt")
+    # policy_test(SeniorityPolicy, test_block, 100, load_checkpoint=False, metrics_file="data/fifo.txt")
+    # policy_test(HaircutPolicy, test_block, 1000, load_checkpoint=True, metrics_file="data/haircut.txt")
+    # policy_test(ReversedSeniorityPolicy, test_block, 1000, load_checkpoint=True, metrics_file="data/reversed_seniority.txt")
+    # policy_test(PoisonPolicy, test_block, 500, load_checkpoint=True, metrics_file="data/seniority.txt")
     # haircut_policy_test(1000, load_checkpoint=True)
