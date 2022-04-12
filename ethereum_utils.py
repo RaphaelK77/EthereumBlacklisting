@@ -136,12 +136,16 @@ class EthereumUtils:
         """
         log_dict = {}
         checked_addresses = []
+        topics = []
 
         for event_type in event_types:
-            if event_type not in event_abis:
+            if event_type not in event_abis or event_type not in abis.topics:
                 raise ValueError(f"Tried to get all events of an event type that does not exist ('{event_type}')")
+            topics.append(abis.topics[event_type])
 
-        for log in receipt["logs"]:
+        logs = [log for log in receipt["logs"] if log["topics"][0].hex() in topics]
+
+        for log in logs:
 
             smart_contract = log["address"]
             if smart_contract in checked_addresses:
