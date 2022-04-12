@@ -43,11 +43,14 @@ class FIFOPolicy(BlacklistPolicy):
 
         if self.is_blacklisted(sender, "ETH"):
             tainted_fee_to_miner = self.remove_from_blacklist(sender, paid_to_miner, "ETH")
-            tainted_fee = self.remove_from_blacklist(sender, total_fee_paid - paid_to_miner, "ETH")
+            # check blacklist status again in case the first remove cleared it
+            if self.is_blacklisted(sender, "ETH"):
+                tainted_fee = self.remove_from_blacklist(sender, total_fee_paid - paid_to_miner, "ETH")
 
         self.add_to_blacklist(miner, tainted_fee_to_miner, "ETH", paid_to_miner)
 
-        self._logger.debug(self._tx_log + f"Fee: Removed {format(tainted_fee, '.2e')} wei taint from {sender}, and transferred {format(tainted_fee_to_miner, '.2e')} wei of which to miner {miner}")
+        if tainted_fee > 0:
+            self._logger.debug(self._tx_log + f"Fee: Removed {format(tainted_fee, '.2e')} wei taint from {sender}, and transferred {format(tainted_fee_to_miner, '.2e')} wei of which to miner {miner}")
 
     def increase_temp_balance(self, account, currency, amount):
         # overwrite unnecessary function
