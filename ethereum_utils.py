@@ -143,7 +143,7 @@ class EthereumUtils:
                 raise ValueError(f"Tried to get all events of an event type that does not exist ('{event_type}')")
             topics.append(abis.topics[event_type])
 
-        logs = [log for log in receipt["logs"] if log["topics"][0].hex() in topics]
+        logs = [log for log in receipt["logs"] if log["topics"] and log["topics"][0].hex() in topics]
 
         for log in logs:
 
