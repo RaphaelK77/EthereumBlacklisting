@@ -84,8 +84,21 @@ class EthereumUtils:
             # self.logger.debug(f"Skipping internal transaction in {internal_tx['transactionHash']}, since it produced the error '{internal_tx['error']}' (trace {internal_tx['traceAddress']}).")
             return None
 
-        if "value" not in internal_tx["action"] or "to" not in internal_tx["action"] or "from" not in internal_tx["action"]:
+        if "value" not in internal_tx["action"] or "from" not in internal_tx["action"]:
             return None
+
+        if "to" not in internal_tx["action"]:
+            if "type" in internal_tx and internal_tx["type"] == "create":
+                value = int(internal_tx["action"]["value"], base=16)
+                if value == 0:
+                    return None
+                event_type = "Creation"
+                receiver = internal_tx["result"]["address"]
+                sender = internal_tx["action"]["from"]
+                return {"args": {"from": Web3.toChecksumAddress(sender), "to": Web3.toChecksumAddress(receiver),
+                                 "value": value}, "address": "ETH", "event": event_type}
+            else:
+                return None
 
         value = int(internal_tx["action"]["value"], base=16)
         if value > 0 and "callType" in internal_tx["action"] and internal_tx["action"]["callType"] == "call":

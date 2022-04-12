@@ -247,7 +247,7 @@ class BlacklistPolicy(ABC):
 
         is_weth_transaction = self._eth_utils.is_weth(receiver)
 
-        # internal transactions to and from WETH are not recorded, skip it in that case
+        # internal transactions to and from WETH need to match an event, so they cannot be processed alone
         if transaction["value"] and not is_weth_transaction:
             # process first internal transaction if the transaction transfers ETH
             if not internal_transactions:
