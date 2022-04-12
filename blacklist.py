@@ -299,7 +299,20 @@ class FIFOBlacklist(Blacklist):
         self._blacklist[account]["all"].append(currency)
 
     def get_metrics(self):
-        pass
+        result = {}
+
+        currencies = set()
+        for account in self._blacklist:
+            for currency in self._blacklist[account].keys():
+                if currency != "all":
+                    currencies.add(currency)
+
+        result["UniqueCurrencies"] = len(currencies)
+        result["Currencies"] = currencies
+
+        result["UniqueTaintedAccounts"] = len(self._blacklist)
+
+        return result
 
     def set_blacklist(self, blacklist: dict):
         self._blacklist = blacklist
