@@ -36,10 +36,10 @@ checkpoint_file = parameters["CheckpointFile"]
 ETHERSCAN_API_KEY = parameters["EtherScanKey"]
 
 
-def policy_test(policy, start_block, block_number, load_checkpoint, metrics_file=None):
+def policy_test(policy, start_block, block_number, load_checkpoint, metrics_file=None, start_accounts: list = None):
     blacklist_policy = policy(w3, checkpoint_file=checkpoint_file, log_file=log_file, metrics_file=metrics_file)
-    blacklist_policy.add_account_to_blacklist(address="0x11b815efB8f581194ae79006d24E0d814B7697F6", block=start_block)
-    blacklist_policy.add_account_to_blacklist(address="0x529fFceC1Ee0DBBB822b29982B7D5ea7B8DcE4E2", block=start_block)
+    for account in start_accounts:
+        blacklist_policy.add_account_to_blacklist(address=account, block=start_block)
     print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
     print("Amounts:")
     blacklist_policy.print_blacklisted_amount()
@@ -73,13 +73,18 @@ if __name__ == '__main__':
     logger.info(f"Latest block: {latest_block}.")
 
     # example block and transaction
-    test_block = 14394958
+    # bZx theft
+    start_block = 13557100
+    start_accounts = ["0x74487eEd1E67F4787E8C0570E8D5d168a05254D4"]
+
+    # vulcan forged hack
+    start_block_2 = 13793875
+    start_accounts_2 = ["0x48ad05a3B73c9E7fAC5918857687d6A11d2c73B1", "0xe3cD90be37A79D9da86b5E14E2F6042Cd0e53b66"]
 
     # ********* TESTING *************
 
-    policy_test(FIFOPolicy, test_block, 100, load_checkpoint=True, metrics_file="data/fifo.txt")
-    # policy_test(SeniorityPolicy, test_block, 100, load_checkpoint=False, metrics_file="data/fifo.txt")
-    # policy_test(HaircutPolicy, test_block, 1000, load_checkpoint=True, metrics_file="data/haircut.txt")
-    # policy_test(ReversedSeniorityPolicy, test_block, 1000, load_checkpoint=True, metrics_file="data/reversed_seniority.txt")
-    # policy_test(PoisonPolicy, test_block, 500, load_checkpoint=True, metrics_file="data/seniority.txt")
-    # haircut_policy_test(1000, load_checkpoint=True)
+    # policy_test(FIFOPolicy, start_block, 100, load_checkpoint=True, metrics_file="data/analytics/fifo.txt")
+    # policy_test(SeniorityPolicy, start_block, 100, load_checkpoint=False, metrics_file="data/analytics/fifo.txt")
+    # policy_test(HaircutPolicy, start_block, 1000, load_checkpoint=True, metrics_file="data/analytics/haircut.txt")
+    policy_test(ReversedSeniorityPolicy, start_block_2, 10000, load_checkpoint=True, metrics_file="data/analytics/reversed_seniority.txt", start_accounts=start_accounts_2)
+    # policy_test(PoisonPolicy, start_block, 500, load_checkpoint=True, metrics_file="data/analytics/seniority.txt")

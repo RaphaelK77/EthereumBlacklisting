@@ -64,14 +64,14 @@ class BlacklistPolicy(ABC):
             self.add_to_temp_balances(account, currency)
         self.temp_balances[account][currency] += amount
 
-        self._logger.debug(f"Increased temp balance of {currency} by {format(amount, '.2e')} for {account}")
+        # self._logger.debug(f"Increased temp balance of {currency} by {format(amount, '.2e')} for {account}")
 
     def reduce_temp_balance(self, account, currency, amount):
         if account not in self.temp_balances:
             self.add_to_temp_balances(account, currency)
         self.temp_balances[account][currency] -= amount
 
-        self._logger.debug(f"Reduced temp balance of {currency} by {format(amount, '.2e')} for {account}")
+        # self._logger.debug(f"Reduced temp balance of {currency} by {format(amount, '.2e')} for {account}")
 
     def add_to_temp_balances(self, account, currency, get_balance=False):
         if account is None:
@@ -342,7 +342,7 @@ class BlacklistPolicy(ABC):
             if transfer_receiver != self._eth_utils.null_address:
                 self.increase_temp_balance(transfer_receiver, currency, amount)
 
-            self._logger.debug(self._tx_log + f"Transferred {format(amount, '.2e')} temp balance of {currency} from {transfer_sender} to {transfer_receiver} ")
+            # self._logger.debug(self._tx_log + f"Transferred {format(amount, '.2e')} temp balance of {currency} from {transfer_sender} to {transfer_receiver} ")
 
         return
 
@@ -402,6 +402,10 @@ class BlacklistPolicy(ABC):
             if name is None:
                 name = "n/a"
             print(f"\t{name: <25}\t{symbol: <5} ({currency_address: <42}):\t{format(blacklisted_amounts[currency], '.5e')},")
+        if self._eth_utils.WETH not in blacklisted_amounts:
+            blacklisted_amounts[self._eth_utils.WETH] = 0
+        if "ETH" not in blacklisted_amounts:
+            blacklisted_amounts["ETH"] = 0
         total_eth = blacklisted_amounts['ETH'] + blacklisted_amounts[self._eth_utils.WETH]
         print(f"\t{'Ether + Wrapped Ether': <25}\t{'ETH + WETH:': <49}" +
               f"\t{format(total_eth, '.5e')},")

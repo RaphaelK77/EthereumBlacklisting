@@ -78,12 +78,13 @@ class EthereumUtils:
             self.current_tx = internal_tx["transactionHash"]
             self.reverted_traces = []
 
-        if "value" not in internal_tx["action"] or "to" not in internal_tx["action"] or "from" not in internal_tx["action"]:
-            return None
         # skip transactions that produced an error
         if "error" in internal_tx:
             self.reverted_traces.append(internal_tx["traceAddress"])
             # self.logger.debug(f"Skipping internal transaction in {internal_tx['transactionHash']}, since it produced the error '{internal_tx['error']}' (trace {internal_tx['traceAddress']}).")
+            return None
+
+        if "value" not in internal_tx["action"] or "to" not in internal_tx["action"] or "from" not in internal_tx["action"]:
             return None
 
         value = int(internal_tx["action"]["value"], base=16)
