@@ -38,8 +38,12 @@ class FIFOPolicy(BlacklistPolicy):
         total_fee_paid = gas_price * gas_used
         paid_to_miner = (gas_price - base_fee) * gas_used
 
-        tainted_fee_to_miner = self.remove_from_blacklist(sender, paid_to_miner, "ETH")
-        tainted_fee = self.remove_from_blacklist(sender, total_fee_paid - paid_to_miner, "ETH")
+        tainted_fee_to_miner = 0
+        tainted_fee = 0
+
+        if self.is_blacklisted(sender, "ETH"):
+            tainted_fee_to_miner = self.remove_from_blacklist(sender, paid_to_miner, "ETH")
+            tainted_fee = self.remove_from_blacklist(sender, total_fee_paid - paid_to_miner, "ETH")
 
         self.add_to_blacklist(miner, tainted_fee_to_miner, "ETH", paid_to_miner)
 

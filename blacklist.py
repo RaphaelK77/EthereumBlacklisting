@@ -216,9 +216,15 @@ class FIFOBlacklist(Blacklist):
     def add_to_blacklist(self, address: str, currency: str, amount: int, total_amount=None):
         if total_amount is None:
             total_amount = amount
+
+        # add address if not in blacklist
+        if address not in self._blacklist:
+            self._blacklist[address] = {}
+
+        # add currency if not in blacklist[address]
         if currency not in self._blacklist[address]:
             self._blacklist[address][currency] = []
-        self._blacklist[address][currency].append((amount, total_amount))
+        self._blacklist[address][currency].append([amount, total_amount])
 
     def is_blacklisted(self, address: str, currency=None):
         if currency is None:
@@ -231,10 +237,11 @@ class FIFOBlacklist(Blacklist):
 
         for address in self._blacklist:
             for currency in self._blacklist[address].keys():
-                if currency not in self._blacklist[address]:
-                    amounts[currency] = 0
-                for tx in self._blacklist[address][currency]:
-                    amounts[currency] += tx[0]
+                if currency != "all":
+                    if currency not in amounts:
+                        amounts[currency] = 0
+                    for tx in self._blacklist[address][currency]:
+                        amounts[currency] += tx[0]
 
         return amounts
 
@@ -261,7 +268,7 @@ class FIFOBlacklist(Blacklist):
 
             # remove the transaction if all its value has been used
             if self._blacklist[address][currency][0][1] == 0:
-                self._blacklist[address][currency][0].pop(0)
+                self._blacklist[address][currency].pop(0)
 
             if amount == amount_reduced:
                 return blacklisted_amount_removed
@@ -279,9 +286,14 @@ class FIFOBlacklist(Blacklist):
         if account not in self._blacklist or currency not in self._blacklist[account]:
             return 0
 
+        if currency == "all":
+            return self._blacklist[account][currency]
+
         blacklisted_value = 0
         for tx in self._blacklist[account][currency]:
             blacklisted_value += tx[0]
+
+        return blacklisted_value
 
     def add_currency_to_all(self, account: str, currency: str):
         self._blacklist[account]["all"].append(currency)

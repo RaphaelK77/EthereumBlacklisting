@@ -3,7 +3,7 @@ import logging
 import sys
 import time
 from abc import abstractmethod, ABC
-from typing import Optional, Union, Sequence
+from typing import Optional, Sequence
 
 from web3 import Web3
 
@@ -338,15 +338,16 @@ class BlacklistPolicy(ABC):
                 self.add_to_blacklist(address=account, amount=entire_balance, currency=currency)
                 self._logger.info(self._tx_log + f"Tainted entire balance ({format(entire_balance, '.2e')}) of token {currency} for account {account}.")
 
-    def add_to_blacklist(self, address: str, amount: int, currency: str):
+    def add_to_blacklist(self, address: str, amount: int, currency: str, total_amount: int = None):
         """
         Add the specified amount of the given currency to the given account's blacklisted balance.
 
+        :param total_amount: optional total amount for fifo
         :param address: Ethereum address
         :param currency: token address
         :param amount: amount to be added
         """
-        self._blacklist.add_to_blacklist(address, currency=currency, amount=amount)
+        self._blacklist.add_to_blacklist(address, currency=currency, amount=amount, total_amount=total_amount)
 
         self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
 
@@ -381,7 +382,7 @@ class BlacklistPolicy(ABC):
               f"\t{format(blacklisted_amounts['ETH'] + blacklisted_amounts[self._eth_utils.WETH], '.5e')},")
         print("}")
 
-    def remove_from_blacklist(self, address: str, amount: Union[int, float], currency: str):
+    def remove_from_blacklist(self, address: str, amount: int, currency: str):
         """
         Remove the specified amount of the given currency from the given account's blacklisted balance.
 
@@ -389,9 +390,11 @@ class BlacklistPolicy(ABC):
         :param amount: amount to be removed
         :param currency: token address
         """
-        self._blacklist.remove_from_blacklist(address, amount, currency)
+        ret_val = self._blacklist.remove_from_blacklist(address, amount, currency)
 
         self._logger.debug(self._tx_log + f"Removed {format(amount, '.2e')} of blacklisted currency {currency} from account {address}.")
+
+        return ret_val
 
     def get_blacklist_metrics(self):
         return self._blacklist.get_metrics()
@@ -427,7 +430,7 @@ class BlacklistPolicy(ABC):
         self._logger.info(f"Blacklisted entire balance of {format(eth_balance, '.2e')} wei (ETH) of account {address}")
 
     @abstractmethod
-    def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None) -> int:
+    def transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str, currency_2=None) -> int:
         pass
 
     @abstractmethod
@@ -443,7 +446,7 @@ class BlacklistPolicy(ABC):
             for currency in full_blacklist[account]:
                 if currency == "all":
                     continue
-                blacklist_value = full_blacklist[account][currency]
+                blacklist_value = self.get_blacklist_value(account, currency)
                 balance = self.get_balance(account, currency, self._current_block + 1)
                 if blacklist_value > balance:
                     self._logger.warning(f"Blacklist value {format(blacklist_value, '.2e')} for account {account} and currency {currency} is greater than balance {format(balance, '.2e')} " +
