@@ -8,15 +8,35 @@ class Blacklist(ABC):
         self._blacklist = None
 
     @abstractmethod
-    def add_to_blacklist(self, address: str, currency: str, amount: int):
+    def add_to_blacklist(self, address: str, currency: str, amount: int, total_amount=None):
+        """
+        Adds the given address, currency and amount to the blacklist
+
+        :param address: ethereum address
+        :param currency: eth/token
+        :param amount: amount to be added
+        :param total_amount: total value of the (tainted) transaction - only needed for FIFO
+        """
         pass
 
     @abstractmethod
     def is_blacklisted(self, address: str, currency=None):
+        """
+        Checks if the given address and currency are on the blacklist
+
+        :param address: ethereum address
+        :param currency: token - optional, only checks account if not given
+        :return: boolean
+        """
         pass
 
     @abstractmethod
     def get_blacklisted_amount(self):
+        """
+        Retrieves the total blacklisted amount as a dict of currency: amount
+
+        :return: total blacklisted currency
+        """
         pass
 
     def get_blacklist(self):
@@ -24,6 +44,13 @@ class Blacklist(ABC):
 
     @abstractmethod
     def remove_from_blacklist(self, address: str, amount: int, currency: str):
+        """
+        Reduce the blacklisted value of address and currency by amount
+
+        :param address:
+        :param amount: amount to be deducted
+        :param currency: eth/token
+        """
         pass
 
     @abstractmethod
@@ -31,7 +58,14 @@ class Blacklist(ABC):
         pass
 
     @abstractmethod
-    def get_account_blacklist_value(self, account: str, currency: int):
+    def get_account_blacklist_value(self, account: str, currency: int) -> int:
+        """
+        Retrieves the amount of blacklisted currency for the given account and currency
+
+        :param account: ethereum address
+        :param currency: ETH or token address
+        :return: the blacklisted value, 0 if not blacklisted
+        """
         pass
 
     @abstractmethod
@@ -42,11 +76,13 @@ class Blacklist(ABC):
     def get_metrics(self):
         pass
 
-    def write_blacklist(self):
-        pass
-
     @abstractmethod
     def set_blacklist(self, blacklist):
+        """
+        Overwrite the blacklist
+
+        :param blacklist: new blacklist
+        """
         pass
 
 
@@ -59,13 +95,14 @@ class SetBlacklist(Blacklist):
     def set_blacklist(self, blacklist: list):
         self._blacklist = set(blacklist)
 
-    def add_to_blacklist(self, address: str, currency: str = None, amount: int = None):
+    def add_to_blacklist(self, address: str, currency: str, amount: int, total_amount=None):
         self._blacklist.add(address)
 
     def is_blacklisted(self, address: str, currency=None):
         return address in self._blacklist
 
     def get_blacklisted_amount(self):
+        # blacklisted amounts for poison are calculated in the policy class, since balances need to be fetched
         pass
 
     def get_blacklist(self):
@@ -103,7 +140,7 @@ class DictBlacklist(Blacklist):
         else:
             return address in self._blacklist and currency in self._blacklist[address]
 
-    def add_to_blacklist(self, address, currency, amount):
+    def add_to_blacklist(self, address, currency, amount, total_amount=None):
         # add address if not in blacklist
         if address not in self._blacklist:
             self._blacklist[address] = {}
@@ -125,9 +162,6 @@ class DictBlacklist(Blacklist):
                 del self._blacklist[address]
 
     def add_account_to_blacklist(self, account, block):
-        # finish all pending write operations; WARNING: will cause issues if done mid-block
-        self.write_blacklist()
-
         # add address to blacklist
         if account not in self._blacklist:
             self._blacklist[account] = {}
@@ -175,29 +209,85 @@ class DictBlacklist(Blacklist):
 
 
 class FIFOBlacklist(Blacklist):
-    def add_to_blacklist(self, address: str, currency: str, amount: int):
-        pass
+    def __init__(self):
+        super(FIFOBlacklist, self).__init__()
+        self._blacklist = {}
+
+    def add_to_blacklist(self, address: str, currency: str, amount: int, total_amount=None):
+        if total_amount is None:
+            total_amount = amount
+        if currency not in self._blacklist[address]:
+            self._blacklist[address][currency] = []
+        self._blacklist[address][currency].append((amount, total_amount))
 
     def is_blacklisted(self, address: str, currency=None):
-        pass
+        if currency is None:
+            return address in self._blacklist
+        else:
+            return address in self._blacklist and currency in self._blacklist[address]
 
     def get_blacklisted_amount(self):
-        pass
+        amounts = {}
+
+        for address in self._blacklist:
+            for currency in self._blacklist[address].keys():
+                if currency not in self._blacklist[address]:
+                    amounts[currency] = 0
+                for tx in self._blacklist[address][currency]:
+                    amounts[currency] += tx[0]
+
+        return amounts
 
     def remove_from_blacklist(self, address: str, amount: int, currency: str):
-        pass
+        """
+        Removes amount from the blacklisted account's previous transactions
+
+        :param address: ethereum address
+        :param amount: amount to remove
+        :param currency: eth/token
+        :return: the amount of removed value that was blacklisted
+        """
+        blacklisted_amount_removed = 0
+
+        while self._blacklist[address][currency]:
+            blacklisted_tx = self._blacklist[address][currency][0]
+            amount_reduced = min(amount, blacklisted_tx[1])
+            remaining_taint_in_tx = min(blacklisted_tx[0], blacklisted_tx[1]-amount_reduced)
+            removed_taint = blacklisted_tx[0] - remaining_taint_in_tx
+            blacklisted_amount_removed += removed_taint
+
+            self._blacklist[address][currency][0][0] -= removed_taint
+            self._blacklist[address][currency][0][1] -= amount_reduced
+
+            # remove the transaction if all its value has been used
+            if self._blacklist[address][currency][0][1] == 0:
+                self._blacklist[address][currency][0].pop(0)
+
+            if amount == amount_reduced:
+                return blacklisted_amount_removed
+
+        del self._blacklist[address][currency]
+        return blacklisted_amount_removed
 
     def add_account_to_blacklist(self, account: str, block: int):
-        pass
+        if account not in self._blacklist:
+            self._blacklist[account] = {}
+        # set all flag or clear it
+        self._blacklist[account]["all"] = []
 
     def get_account_blacklist_value(self, account: str, currency: int):
-        pass
+        if account not in self._blacklist or currency not in self._blacklist[account]:
+            return 0
+
+        blacklisted_value = 0
+        for tx in self._blacklist[account][currency]:
+            blacklisted_value += tx[0]
 
     def add_currency_to_all(self, account: str, currency: str):
-        pass
+        self._blacklist[account]["all"].append(currency)
 
     def get_metrics(self):
         pass
 
-    def set_blacklist(self, blacklist):
-        pass
+    def set_blacklist(self, blacklist: dict):
+        self._blacklist = blacklist
