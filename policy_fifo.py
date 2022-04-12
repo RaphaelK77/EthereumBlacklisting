@@ -14,15 +14,13 @@ class FIFOPolicy(BlacklistPolicy):
 
         if self.is_blacklisted(from_address, currency):
             transferred_amount = self.remove_from_blacklist(from_address, amount_sent, currency)
-        # if neither address is blacklisted, return immediately
-        elif not self.is_blacklisted(to_address, currency):
-            return 0
 
-        self.add_to_blacklist(to_address, transferred_amount, currency_2, amount_sent)
+        if self.is_blacklisted(to_address, currency) or transferred_amount > 0:
+            self.add_to_blacklist(to_address, transferred_amount, currency_2, amount_sent)
 
-        if currency == currency_2:
-            self._logger.debug(self._tx_log + f"Transferred {format(transferred_amount, '.2e')} taint " +
-                               f"({format(amount_sent, '.2e')} total) of {currency} from {from_address} to {to_address}")
+            if currency == currency_2:
+                self._logger.debug(self._tx_log + f"Transferred {format(transferred_amount, '.2e')} taint " +
+                                   f"({format(amount_sent, '.2e')} total) of {currency} from {from_address} to {to_address}")
 
         return transferred_amount
 

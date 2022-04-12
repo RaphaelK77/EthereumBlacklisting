@@ -259,7 +259,7 @@ class FIFOBlacklist(Blacklist):
         while self._blacklist[address][currency]:
             blacklisted_tx = self._blacklist[address][currency][0]
             amount_reduced = min(amount, blacklisted_tx[1])
-            remaining_taint_in_tx = min(blacklisted_tx[0], blacklisted_tx[1]-amount_reduced)
+            remaining_taint_in_tx = min(blacklisted_tx[0], blacklisted_tx[1] - amount_reduced)
             removed_taint = blacklisted_tx[0] - remaining_taint_in_tx
             blacklisted_amount_removed += removed_taint
 
@@ -270,10 +270,14 @@ class FIFOBlacklist(Blacklist):
             if self._blacklist[address][currency][0][1] == 0:
                 self._blacklist[address][currency].pop(0)
 
-            if amount == amount_reduced:
+            amount -= amount_reduced
+            if amount == 0:
                 return blacklisted_amount_removed
 
-        del self._blacklist[address][currency]
+        if not self._blacklist[address][currency]:
+            del self._blacklist[address][currency]
+        if not self._blacklist[address]:
+            del self._blacklist[address]
         return blacklisted_amount_removed
 
     def add_account_to_blacklist(self, account: str, block: int):
