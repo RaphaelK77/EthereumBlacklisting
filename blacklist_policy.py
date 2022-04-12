@@ -135,6 +135,9 @@ class BlacklistPolicy(ABC):
         if load_checkpoint:
             saved_block, saved_blacklist = self.load_from_checkpoint(self._checkpoint_file)
             # only use loaded data if saved block is between start and end block
+            if start_block + block_amount - 1 == saved_block:
+                self._logger.info("Target already reached. Exiting.")
+                return
             if start_block < saved_block < start_block + block_amount - 1:
                 loop_start_block = saved_block
                 self._blacklist.set_blacklist(saved_blacklist)
@@ -142,7 +145,7 @@ class BlacklistPolicy(ABC):
             else:
                 self.clear_log()
                 self.clear_metrics_file()
-                self._logger.info("Saved block is not in the correct range. Starting from start block.")
+                self._logger.info(f"Saved block {saved_block} is not in the correct range. Starting from start block.")
         else:
             self.clear_log()
             self.clear_metrics_file()
@@ -173,6 +176,10 @@ class BlacklistPolicy(ABC):
         total_eth = self.print_blacklisted_amount()
         self.export_metrics(metrics_file_handler, total_eth)
         metrics_file_handler.close()
+
+        print("***** Sanity Check *****")
+        self.sanity_check()
+        print("Sanity check complete.")
 
         self.save_checkpoint(self._checkpoint_file)
         end_time = time.time()
