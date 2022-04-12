@@ -206,8 +206,7 @@ class BlacklistPolicy(ABC):
         # skip failed transactions
         if transaction_log["status"] == 0:
             # self._logger.debug(self._tx_log + "Smart contract/transaction execution failed, only checking gas.")
-            if self.is_blacklisted(sender, "ETH"):
-                self.check_gas_fees(transaction_log, transaction, full_block, sender)
+            self.check_gas_fees(transaction_log, transaction, full_block, sender)
             return
 
         # skip the remaining code if there were no smart contract events
@@ -216,8 +215,7 @@ class BlacklistPolicy(ABC):
                 self.process_event(internal_transactions[0])
 
             # if the sender (still) has any blacklisted ETH, taint the paid gas fees
-            if self.is_blacklisted(sender, "ETH"):
-                self.check_gas_fees(transaction_log, transaction, full_block, sender)
+            self.check_gas_fees(transaction_log, transaction, full_block, sender)
             return
 
         # get all transfers
@@ -255,8 +253,7 @@ class BlacklistPolicy(ABC):
                 exit(-1)
             self.process_event(internal_tx)
 
-        if self.is_blacklisted(sender, "ETH"):
-            self.check_gas_fees(transaction_log, transaction, full_block, sender)
+        self.check_gas_fees(transaction_log, transaction, full_block, sender)
 
     def process_event(self, event):
         if event["event"] == "Deposit":
@@ -268,11 +265,10 @@ class BlacklistPolicy(ABC):
             self.add_to_temp_balances(dst, "ETH")
             self.add_to_temp_balances(dst, self._eth_utils.WETH)
 
-            if self.is_blacklisted(dst, "ETH"):
-                transferred_amount = self.transfer_taint(dst, dst, value, "ETH", self._eth_utils.WETH)
+            transferred_amount = self.transfer_taint(dst, dst, value, "ETH", self._eth_utils.WETH)
 
-                if transferred_amount > 0:
-                    self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(transferred_amount, '.2e')} tainted ({format(value, '.2e')} total) ETH of {dst} to WETH.")  #
+            if transferred_amount > 0:
+                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(transferred_amount, '.2e')} tainted ({format(value, '.2e')} total) ETH of {dst} to WETH.")
 
             self.reduce_temp_balance(dst, "ETH", value)
             self.increase_temp_balance(dst, self._eth_utils.WETH, value)
@@ -286,11 +282,10 @@ class BlacklistPolicy(ABC):
             self.add_to_temp_balances(src, "ETH")
             self.add_to_temp_balances(src, self._eth_utils.WETH)
 
-            if self.is_blacklisted(src, self._eth_utils.WETH):
-                transferred_amount = self.transfer_taint(src, src, value, self._eth_utils.WETH, "ETH")
+            transferred_amount = self.transfer_taint(src, src, value, self._eth_utils.WETH, "ETH")
 
-                if transferred_amount > 0:
-                    self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(transferred_amount, '.2e')} tainted ({format(value, '.2e')} total) WETH of {src} to ETH.")
+            if transferred_amount > 0:
+                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(transferred_amount, '.2e')} tainted ({format(value, '.2e')} total) WETH of {src} to ETH.")
 
             self.increase_temp_balance(src, "ETH", value)
             self.reduce_temp_balance(src, self._eth_utils.WETH, value)
@@ -315,8 +310,7 @@ class BlacklistPolicy(ABC):
                 self.add_to_temp_balances(account, currency)
 
             # if the sender is blacklisted, transfer taint to receiver
-            if self.is_blacklisted(transfer_sender, currency):
-                self.transfer_taint(transfer_sender, transfer_receiver, amount, currency)
+            self.transfer_taint(transfer_sender, transfer_receiver, amount, currency)
 
             # update balances
             if transfer_sender != self._eth_utils.null_address:

@@ -172,3 +172,32 @@ class DictBlacklist(Blacklist):
                         amounts[currency] += self._blacklist[account][currency]
 
         return amounts
+
+
+class FIFOBlacklist(Blacklist):
+    def add_to_blacklist(self, address: str, currency: str, amount: int):
+        pass
+
+    def is_blacklisted(self, address: str, currency=None):
+        pass
+
+    def get_blacklisted_amount(self):
+        pass
+
+    def remove_from_blacklist(self, address: str, amount: int, currency: str):
+        pass
+
+    def add_account_to_blacklist(self, account: str, block: int):
+        pass
+
+    def get_account_blacklist_value(self, account: str, currency: int):
+        pass
+
+    def add_currency_to_all(self, account: str, currency: str):
+        pass
+
+    def get_metrics(self):
+        pass
+
+    def set_blacklist(self, blacklist):
+        pass

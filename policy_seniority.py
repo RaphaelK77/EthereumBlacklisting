@@ -7,6 +7,9 @@ class SeniorityPolicy(BlacklistPolicy):
         return DictBlacklist()
 
     def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None):
+        if not self.is_blacklisted(from_address, currency):
+            return 0
+
         transferred_amount = min(amount_sent, self.get_blacklist_value(from_address, currency))
 
         if currency_2 is None:
@@ -26,6 +29,9 @@ class SeniorityPolicy(BlacklistPolicy):
         return transferred_amount
 
     def check_gas_fees(self, transaction_log, transaction, full_block, sender):
+        if not self.is_blacklisted(sender, "ETH"):
+            return
+
         gas_price = transaction["gasPrice"]
         base_fee = full_block["baseFeePerGas"]
         gas_used = transaction_log["gasUsed"]
