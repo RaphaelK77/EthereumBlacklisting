@@ -60,7 +60,10 @@ class BlacklistPolicy(ABC):
         if self.metrics_file:
             with open(self.metrics_file, "a") as metrics_file_handler:
                 unique_accounts = self.get_blacklist_metrics()["UniqueTaintedAccounts"]
-                metrics_file_handler.write(f"{self._current_block},{unique_accounts},{format(total_eth, '.5e')}\n")
+                if total_eth is None:
+                    metrics_file_handler.write(f"{self._current_block},{unique_accounts},\n")
+                else:
+                    metrics_file_handler.write(f"{self._current_block},{unique_accounts},{format(total_eth, '.5e')}\n")
 
     def clear_metrics_file(self):
         if self.metrics_file:
@@ -168,8 +171,11 @@ class BlacklistPolicy(ABC):
                     f"{total_blocks_scanned} ({format(total_blocks_scanned / block_amount * 100, '.2f')}%) blocks scanned, " +
                     f" {utils.format_seconds_as_time(elapsed_time)} elapsed ({utils.format_seconds_as_time(blocks_remaining * (elapsed_time / blocks_scanned))} remaining, " +
                     f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min). Last block: {self._current_block}")
-                print("Blacklisted amounts:")
-                total_eth = self.print_blacklisted_amount()
+                if self.get_policy_name() != "Poison" or (i - start_block) % 5000 == 0:
+                    print("Blacklisted amounts:")
+                    total_eth = self.print_blacklisted_amount()
+                else:
+                    total_eth = None
                 self.save_checkpoint(self._checkpoint_file)
                 self.export_metrics(total_eth)
 
@@ -381,7 +387,8 @@ class BlacklistPolicy(ABC):
         """
         self._blacklist.add_to_blacklist(address, currency=currency, amount=amount, total_amount=total_amount)
 
-        self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
+        if amount > 0:
+            self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
 
     def is_blacklisted(self, address: str, currency: Optional[str] = None):
         return self._blacklist.is_blacklisted(address, currency)
