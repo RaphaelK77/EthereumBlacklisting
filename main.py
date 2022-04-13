@@ -29,7 +29,7 @@ remote_provider = Web3.HTTPProvider(parameters["InfuraLink"])
 # use default Erigon URL for local provider
 local_provider = Web3.HTTPProvider("http://localhost:8545")
 
-log_file = parameters["LogFile"]
+log_folder = parameters["LogFolder"]
 checkpoint_location = parameters["CheckpointLocation"]
 
 # read Etherscan API key from config
@@ -37,7 +37,7 @@ ETHERSCAN_API_KEY = parameters["EtherScanKey"]
 
 
 def policy_test(policy, start_block, block_number, load_checkpoint, metrics_file=None, start_accounts: list = None, checkpoint_filename="blacklist_checkpoint.json"):
-    blacklist_policy = policy(w3, checkpoint_file=checkpoint_location + checkpoint_filename, log_file=log_file, metrics_file=metrics_file)
+    blacklist_policy = policy(w3, checkpoint_file=checkpoint_location + checkpoint_filename, log_folder=log_folder, metrics_file=metrics_file)
     for account in start_accounts:
         blacklist_policy.add_account_to_blacklist(address=account, block=start_block)
     print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
@@ -49,8 +49,6 @@ def policy_test(policy, start_block, block_number, load_checkpoint, metrics_file
     blacklist_policy.export_blacklist("data/finished_blacklist.json")
 
     print(blacklist_policy.get_blacklist_metrics())
-    print("Amounts:")
-    blacklist_policy.print_blacklisted_amount()
 
 
 if __name__ == '__main__':
@@ -79,10 +77,27 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    policy_test(FIFOPolicy, start_block_2, 10000, load_checkpoint=True, metrics_file="data/analytics/fifo.txt", start_accounts=start_accounts_2, checkpoint_filename="checkpoint_fifo.json")
-    policy_test(SeniorityPolicy, start_block_2, 10000, load_checkpoint=True, metrics_file="data/analytics/seniority.txt", start_accounts=start_accounts_2,
-                checkpoint_filename="checkpoint_seniority.json")
-    policy_test(HaircutPolicy, start_block_2, 100000, load_checkpoint=True, metrics_file="data/analytics/haircut.txt", start_accounts=start_accounts_2, checkpoint_filename="checkpoint_haircut.json")
-    policy_test(ReversedSeniorityPolicy, start_block_2, 10000, load_checkpoint=True, metrics_file="data/analytics/reversed_seniority.txt", start_accounts=start_accounts_2,
-                checkpoint_filename="checkpoint_reversed_seniority.json")
-    policy_test(PoisonPolicy, start_block_2, 10000, load_checkpoint=True, metrics_file="data/analytics/seniority.txt", start_accounts=start_accounts_2, checkpoint_filename="checkpoint_poison.json")
+    block_amount = 25000
+
+    if len(sys.argv) != 2:
+        print(f"Invalid argument string {sys.argv}.")
+        exit(-2)
+
+    policy_id = int(sys.argv[1])
+
+    if policy_id == 0:
+        policy_test(FIFOPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_file="data/analytics/fifo.txt", start_accounts=start_accounts_2, checkpoint_filename="checkpoint_fifo.json")
+    elif policy_id == 1:
+        policy_test(SeniorityPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_file="data/analytics/seniority.txt", start_accounts=start_accounts_2,
+                    checkpoint_filename="checkpoint_seniority.json")
+    elif policy_id == 2:
+        policy_test(HaircutPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_file="data/analytics/haircut.txt", start_accounts=start_accounts_2,
+                    checkpoint_filename="checkpoint_haircut.json")
+    elif policy_id == 3:
+        policy_test(ReversedSeniorityPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_file="data/analytics/reversed_seniority.txt", start_accounts=start_accounts_2,
+                    checkpoint_filename="checkpoint_reversed_seniority.json")
+    elif policy_id == 4:
+        policy_test(PoisonPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_file="data/analytics/poison.txt", start_accounts=start_accounts_2,
+                    checkpoint_filename="checkpoint_poison.json")
+    else:
+        print(f"Invalid policy id {policy_id}. Must be a number between 0 and 4.")
