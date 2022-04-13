@@ -24,7 +24,7 @@ class BlacklistPolicy(ABC):
         self._current_tx = ""
         self.temp_balances = None
         if metrics_folder:
-            self.metrics_file = f"{metrics_folder}{self.get_policy_name().replace(' ','_')}.txt"
+            self.metrics_file = f"{metrics_folder}{self.get_policy_name().replace(' ','_')}.csv"
         else:
             self.metrics_file = None
 
