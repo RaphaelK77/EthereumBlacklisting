@@ -38,7 +38,7 @@ ETHERSCAN_API_KEY = parameters["EtherScanKey"]
 
 
 def policy_test(policy, start_block, block_number, load_checkpoint, metrics_folder=None, start_accounts: list = None, checkpoint_filename="blacklist_checkpoint.json"):
-    blacklist_policy = policy(w3, checkpoint_file=checkpoint_location + checkpoint_filename, log_folder=log_folder, metrics_file=metrics_folder)
+    blacklist_policy = policy(w3, checkpoint_file=checkpoint_location + checkpoint_filename, log_folder=log_folder, metrics_folder=metrics_folder)
     for account in start_accounts:
         blacklist_policy.add_account_to_blacklist(address=account, block=start_block)
     print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
