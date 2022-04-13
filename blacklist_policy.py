@@ -13,11 +13,11 @@ from ethereum_utils import EthereumUtils
 
 
 class BlacklistPolicy(ABC):
-    def __init__(self, w3: Web3, checkpoint_file, log_file=None, metrics_file=None):
+    def __init__(self, w3: Web3, checkpoint_file, log_folder=None, metrics_file=None):
         self.w3 = w3
         """ Web3 instance """
         self._write_queue = []
-        self._logger = logging.getLogger(__name__)
+        self._logger = logging.getLogger(self.get_policy_name())
         self._logger.setLevel(logging.DEBUG)
         self._current_block = -1
         self._checkpoint_file = checkpoint_file
@@ -25,17 +25,17 @@ class BlacklistPolicy(ABC):
         self.temp_balances = None
         self.metrics_file = metrics_file
 
-        formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+        formatter = logging.Formatter("%(asctime)s %(name)s [%(levelname)s] %(message)s")
 
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(formatter)
         self._logger.addHandler(console_handler)
 
-        self.log_file = log_file
+        self.log_file = f"{log_folder}{self.get_policy_name().replace(' ', '_')}.log"
 
-        if log_file:
-            file_handler = logging.FileHandler(log_file)
+        if log_folder:
+            file_handler = logging.FileHandler(self.log_file)
             file_handler.setFormatter(formatter)
             file_handler.setLevel(logging.DEBUG)
             self._logger.addHandler(file_handler)
@@ -49,10 +49,15 @@ class BlacklistPolicy(ABC):
     def init_blacklist(self):
         pass
 
-    def export_metrics(self, file_handler, total_eth):
+    @abstractmethod
+    def get_policy_name(self):
+        pass
+
+    def export_metrics(self, total_eth):
         if self.metrics_file:
-            unique_accounts = self.get_blacklist_metrics()["UniqueTaintedAccounts"]
-            file_handler.write(f"{self._current_block},{unique_accounts},{format(total_eth, '.5e')}\n")
+            with open(self.metrics_file, "a") as metrics_file_handler:
+                unique_accounts = self.get_blacklist_metrics()["UniqueTaintedAccounts"]
+                metrics_file_handler.write(f"{self._current_block},{unique_accounts},{format(total_eth, '.5e')}\n")
 
     def clear_metrics_file(self):
         if self.metrics_file:
@@ -150,11 +155,6 @@ class BlacklistPolicy(ABC):
             self.clear_log()
             self.clear_metrics_file()
 
-        metrics_file_handler = None
-
-        if self.metrics_file:
-            metrics_file_handler = open(self.metrics_file, "a")
-
         for i in range(loop_start_block, start_block + block_amount):
             self.check_block(i)
 
@@ -162,7 +162,7 @@ class BlacklistPolicy(ABC):
                 total_blocks_scanned = i - start_block
                 blocks_scanned = i - loop_start_block
                 elapsed_time = time.time() - start_time
-                blocks_remaining = block_amount - blocks_scanned
+                blocks_remaining = block_amount - total_blocks_scanned
                 self._logger.info(
                     f"{total_blocks_scanned} ({format(total_blocks_scanned / block_amount * 100, '.2f')}%) blocks scanned, " +
                     f" {utils.format_seconds_as_time(elapsed_time)} elapsed ({utils.format_seconds_as_time(blocks_remaining * (elapsed_time / blocks_scanned))} remaining, " +
@@ -170,12 +170,12 @@ class BlacklistPolicy(ABC):
                 print("Blacklisted amounts:")
                 total_eth = self.print_blacklisted_amount()
                 self.save_checkpoint(self._checkpoint_file)
-                self.export_metrics(metrics_file_handler, total_eth)
+                self.export_metrics(total_eth)
 
         print("Blacklisted amounts:")
         total_eth = self.print_blacklisted_amount()
-        self.export_metrics(metrics_file_handler, total_eth)
-        metrics_file_handler.close()
+        if self.metrics_file:
+            self.export_metrics(total_eth)
 
         print("***** Sanity Check *****")
         self.sanity_check()

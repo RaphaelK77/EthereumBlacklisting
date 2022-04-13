@@ -7,6 +7,9 @@ class PoisonPolicy(BlacklistPolicy):
     def init_blacklist(self):
         return SetBlacklist()
 
+    def get_policy_name(self):
+        return "Poison"
+
     def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None) -> int:
         if not self.is_blacklisted(from_address, currency):
             return 0

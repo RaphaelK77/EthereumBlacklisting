@@ -6,11 +6,17 @@ class SeniorityPolicy(BlacklistPolicy):
     def init_blacklist(self):
         return DictBlacklist()
 
+    def get_policy_name(self):
+        return "Seniority"
+
     def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None):
         if not self.is_blacklisted(from_address, currency):
             return 0
 
         transferred_amount = min(amount_sent, self.get_blacklist_value(from_address, currency))
+
+        if transferred_amount == 0:
+            return 0
 
         if currency_2 is None:
             currency_2 = currency

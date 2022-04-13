@@ -6,6 +6,9 @@ class FIFOPolicy(BlacklistPolicy):
     def init_blacklist(self):
         return FIFOBlacklist()
 
+    def get_policy_name(self):
+        return "FIFO"
+
     def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None) -> int:
         if currency_2 is None:
             currency_2 = currency
