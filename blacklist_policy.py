@@ -133,10 +133,8 @@ class BlacklistPolicy(ABC):
             interval = 10
         elif block_amount < 2000:
             interval = 100
-        elif block_amount < 20000:
-            interval = 500
         else:
-            interval = 10000
+            interval = 500
 
         loop_start_block = start_block
 
