@@ -159,22 +159,41 @@ class EthereumUtils:
         logs = [log for log in receipt["logs"] if log["topics"] and log["topics"][0].hex() in topics]
 
         for log in logs:
+            token = Web3.toChecksumAddress(log["address"])
 
-            smart_contract = log["address"]
-            if smart_contract in checked_addresses:
-                continue
-            checked_addresses.append(smart_contract)
+            try:
+                if log["data"] == "0x":
+                    value = 0
+                else:
+                    value = int(log["data"], base=16)
+                address_1 = Web3.toChecksumAddress("0x" + log["topics"][1].hex()[-40:])
 
-            contract_object = self.get_smart_contract(smart_contract, event_types=tuple(event_types))
+                if log["topics"][0].hex() == abis.topics["Transfer"]:
+                    to_address = Web3.toChecksumAddress("0x" + log["topics"][2].hex()[-40:])
+                    log_dict[log["logIndex"]] = {"address": token, "args": {"from": address_1, "to": to_address, "value": value}, "event": "Transfer"}
+                elif log["topics"][0].hex() == abis.topics["Withdrawal"]:
+                    log_dict[log["logIndex"]] = {"address": token, "args": {"src": address_1, "wad": value}, "event": "Withdrawal"}
+                elif log["topics"][0].hex() == abis.topics["Deposit"]:
+                    log_dict[log["logIndex"]] = {"address": token, "args": {"dst": address_1, "wad": value}, "event": "Deposit"}
 
-            if contract_object is None:
-                continue
+            except Exception as e:
+                self.logger.debug(f"Exception '{e}' occurred while processing log {log['logIndex']} in transaction {log['transactionHash'].hex()}. Using fallback.")
 
-            # Decode any matching logs
-            for event_type in event_types:
-                decoded_logs = contract_object.events[event_type]().processReceipt(receipt, errors=DISCARD)
-                for decoded_log in decoded_logs:
-                    log_dict[decoded_log["logIndex"]] = decoded_log
+                smart_contract = log["address"]
+                if smart_contract in checked_addresses:
+                    continue
+                checked_addresses.append(smart_contract)
+
+                contract_object = self.get_smart_contract(smart_contract, event_types=tuple(event_types))
+
+                if contract_object is None:
+                    continue
+
+                # Decode any matching logs
+                for event_type in event_types:
+                    decoded_logs = contract_object.events[event_type]().processReceipt(receipt, errors=DISCARD)
+                    for decoded_log in decoded_logs:
+                        log_dict[decoded_log["logIndex"]] = decoded_log
 
         return [log_dict[key] for key in sorted(log_dict)]
 
