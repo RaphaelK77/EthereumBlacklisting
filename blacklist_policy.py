@@ -13,7 +13,7 @@ from ethereum_utils import EthereumUtils
 
 
 class BlacklistPolicy(ABC):
-    def __init__(self, w3: Web3, checkpoint_file, log_folder=None, metrics_file=None):
+    def __init__(self, w3: Web3, checkpoint_file, log_folder=None, metrics_folder=None):
         self.w3 = w3
         """ Web3 instance """
         self._write_queue = []
@@ -23,7 +23,10 @@ class BlacklistPolicy(ABC):
         self._checkpoint_file = checkpoint_file
         self._current_tx = ""
         self.temp_balances = None
-        self.metrics_file = metrics_file
+        if metrics_folder:
+            self.metrics_file = f"{metrics_folder}{self.get_policy_name().replace(' ','_')}.txt"
+        else:
+            self.metrics_file = None
 
         formatter = logging.Formatter("%(asctime)s %(name)s [%(levelname)s] %(message)s")
 
