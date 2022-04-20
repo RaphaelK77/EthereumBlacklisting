@@ -275,7 +275,10 @@ class FIFOBlacklist(Blacklist):
         if currency not in self._blacklist[address]:
             self._blacklist[address][currency] = []
 
-        self._blacklist[address][currency].append([amount, total_amount])
+        if amount == 0 and self._blacklist[address][currency] and self._blacklist[address][currency][-1][0] == 0:
+            self._blacklist[address][currency][-1][1] += total_amount
+        else:
+            self._blacklist[address][currency].append([amount, total_amount])
 
         # remove address and currency if value is 0
         if self.get_account_blacklist_value(address, currency) == 0:
