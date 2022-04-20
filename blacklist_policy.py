@@ -24,7 +24,7 @@ class BlacklistPolicy(ABC):
         self._current_tx = ""
         self.temp_balances = None
         if metrics_folder:
-            self.metrics_file = f"{metrics_folder}{self.get_policy_name().replace(' ','_')}.csv"
+            self.metrics_file = f"{metrics_folder}{self.get_policy_name().replace(' ', '_')}.csv"
         else:
             self.metrics_file = None
 
@@ -150,7 +150,7 @@ class BlacklistPolicy(ABC):
             if start_block < saved_block < start_block + block_amount - 1:
                 loop_start_block = saved_block
                 self._blacklist.set_blacklist(saved_blacklist)
-                self._logger.info("Continuing from saved state.")
+                self._logger.info(f"Continuing from saved state. Progress is {format((loop_start_block - start_block) / block_amount * 100, '.2f')}%")
             else:
                 self.clear_log()
                 self.clear_metrics_file()
@@ -171,7 +171,7 @@ class BlacklistPolicy(ABC):
                     f"{total_blocks_scanned} ({format(total_blocks_scanned / block_amount * 100, '.2f')}%) blocks scanned, " +
                     f" {utils.format_seconds_as_time(elapsed_time)} elapsed ({utils.format_seconds_as_time(blocks_remaining * (elapsed_time / blocks_scanned))} remaining, " +
                     f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min). Last block: {self._current_block}")
-                if self.get_policy_name() != "Poison" or (i - start_block) % 5000 == 0:
+                if self.get_policy_name() != "Poison":
                     print("Blacklisted amounts:")
                     total_eth = self.print_blacklisted_amount()
                 else:
@@ -179,14 +179,15 @@ class BlacklistPolicy(ABC):
                 self.save_checkpoint(self._checkpoint_file)
                 self.export_metrics(total_eth)
 
-        print("Blacklisted amounts:")
-        total_eth = self.print_blacklisted_amount()
-        if self.metrics_file:
-            self.export_metrics(total_eth)
+        if self.get_policy_name() != "Poison":
+            print("Blacklisted amounts:")
+            total_eth = self.print_blacklisted_amount()
+            if self.metrics_file:
+                self.export_metrics(total_eth)
 
-        print("***** Sanity Check *****")
-        self.sanity_check()
-        print("Sanity check complete.")
+            print("***** Sanity Check *****")
+            self.sanity_check()
+            print("Sanity check complete.")
 
         self.save_checkpoint(self._checkpoint_file)
         end_time = time.time()
@@ -437,7 +438,10 @@ class BlacklistPolicy(ABC):
         """
         ret_val = self._blacklist.remove_from_blacklist(address, amount, currency)
 
-        self._logger.debug(self._tx_log + f"Removed {format(amount, '.2e')} of blacklisted currency {currency} from account {address}.")
+        if ret_val > 0:
+            self._logger.debug(self._tx_log + f"Removed {format(ret_val, '.2e')} of blacklisted currency {currency} from account {address}.")
+        elif ret_val == -1:
+            self._logger.debug(self._tx_log + f"Removed address {address} from blacklist.")
 
         return ret_val
 

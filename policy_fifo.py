@@ -16,10 +16,16 @@ class FIFOPolicy(BlacklistPolicy):
         transferred_amount = 0
 
         if self.is_blacklisted(from_address, currency):
-            transferred_amount = self.remove_from_blacklist(from_address, amount_sent, currency)
+            # amount by which the balance is higher than the blacklisted value
+            difference = self.get_temp_balance(from_address, currency) - self.get_blacklist_value(from_address, currency)
+
+            # if difference is higher than sent amount, do not send any taint
+            sent_amount_blacklisted = amount_sent - difference
+            if sent_amount_blacklisted > 0:
+                transferred_amount = self.remove_from_blacklist(from_address, amount_sent, currency)
 
         if self.is_blacklisted(to_address, currency) or transferred_amount > 0:
-            self.add_to_blacklist(to_address, transferred_amount, currency_2, amount_sent)
+            self.add_to_blacklist(address=to_address, amount=transferred_amount, currency=currency_2, total_amount=amount_sent)
 
             if currency == currency_2:
                 self._logger.debug(self._tx_log + f"Transferred {format(transferred_amount, '.2e')} taint " +
@@ -52,19 +58,3 @@ class FIFOPolicy(BlacklistPolicy):
 
         if tainted_fee > 0:
             self._logger.debug(self._tx_log + f"Fee: Removed {format(tainted_fee, '.2e')} wei taint from {sender}, and transferred {format(tainted_fee_to_miner, '.2e')} wei of which to miner {miner}")
-
-    def increase_temp_balance(self, account, currency, amount):
-        # overwrite unnecessary function
-        pass
-
-    def reduce_temp_balance(self, account, currency, amount):
-        # overwrite unnecessary function
-        pass
-
-    def add_to_temp_balances(self, account, currency, get_balance=False):
-        # overwrite unnecessary function
-        pass
-
-    def get_temp_balance(self, account, currency) -> int:
-        # overwrite unnecessary function
-        pass

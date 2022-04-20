@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    block_amount = 25000
+    block_amount = 200000
 
     if len(sys.argv) != 2:
         print(f"Invalid argument string {sys.argv}.")
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     policy_id = int(sys.argv[1])
 
     if policy_id == 0:
-        policy_test(FIFOPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2,
+        policy_test(FIFOPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2,
                     checkpoint_filename="checkpoint_fifo.json")
     elif policy_id == 1:
         policy_test(SeniorityPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2,

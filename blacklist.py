@@ -43,13 +43,14 @@ class Blacklist(ABC):
         return self._blacklist
 
     @abstractmethod
-    def remove_from_blacklist(self, address: str, amount: int, currency: str):
+    def remove_from_blacklist(self, address: str, amount: int, currency: str) -> int:
         """
         Reduce the blacklisted value of address and currency by amount
 
         :param address:
         :param amount: amount to be deducted
         :param currency: eth/token
+        :return: the amount actually removed from the blacklist
         """
         pass
 
@@ -110,6 +111,7 @@ class SetBlacklist(Blacklist):
 
     def remove_from_blacklist(self, address: str, amount: int = None, currency: str = None):
         self._blacklist.remove(address)
+        return -1
 
     def add_account_to_blacklist(self, account: str, block: int):
         self._blacklist.add(account)
@@ -160,6 +162,8 @@ class DictBlacklist(Blacklist):
 
             if not self._blacklist[address]:
                 del self._blacklist[address]
+
+        return amount
 
     def add_account_to_blacklist(self, account, block):
         # add address to blacklist
