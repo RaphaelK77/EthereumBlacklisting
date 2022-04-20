@@ -183,9 +183,7 @@ class EthereumUtils:
                 elif log["topics"][0].hex() == abis.topics["Deposit"]:
                     log_dict[log["logIndex"]] = {"address": token, "args": {"dst": address_1, "wad": value}, "event": "Deposit"}
 
-            except Exception as e:
-                self.logger.debug(f"Exception '{e}' occurred while processing log {log['logIndex']} in transaction {log['transactionHash'].hex()}. Using fallback.")
-
+            except IndexError:
                 smart_contract = log["address"]
                 if smart_contract in checked_addresses:
                     continue
