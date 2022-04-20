@@ -18,11 +18,17 @@ class FIFOPolicy(BlacklistPolicy):
         if self.is_blacklisted(from_address, currency):
             # amount by which the balance is higher than the blacklisted value
             difference = self.get_temp_balance(from_address, currency) - self.get_blacklist_value(from_address, currency)
+            if difference < 0:
+                self._logger.warning(f"Blacklist value {self.format_exp(self.get_blacklist_value(from_address, currency))} for account {from_address} is higher than " +
+                                     f"temp balance {self.format_exp(self.get_temp_balance(from_address, currency))}")
 
             # if difference is higher than sent amount, do not send any taint
             sent_amount_blacklisted = amount_sent - difference
             if sent_amount_blacklisted > 0:
                 transferred_amount = self.remove_from_blacklist(from_address, amount_sent, currency)
+            else:
+                self._logger.debug(self._tx_log + f"Tainted account {from_address} sent {amount_sent}, but taint value {self.format_exp(self.get_blacklist_value(from_address, currency))}" +
+                                   f" is lower than temp balance after transaction ({self.format_exp(self.get_temp_balance(from_address, currency) - amount_sent)})")
 
         if self.is_blacklisted(to_address, currency) or transferred_amount > 0:
             self.add_to_blacklist(address=to_address, amount=transferred_amount, currency=currency_2, total_amount=amount_sent)

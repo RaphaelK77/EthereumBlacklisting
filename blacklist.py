@@ -59,7 +59,7 @@ class Blacklist(ABC):
         pass
 
     @abstractmethod
-    def get_account_blacklist_value(self, account: str, currency: int) -> int:
+    def get_account_blacklist_value(self, account: str, currency: str) -> int:
         """
         Retrieves the amount of blacklisted currency for the given account and currency
 
@@ -86,8 +86,22 @@ class Blacklist(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_top_accounts(self, number, currencies: list) -> dict:
+        """
+        Get the top accounts by amount of tainted currencies
+
+        :param currencies: currency/currencies to order the accounts by
+        :param number: amount of accounts to return
+        :return: dict of account: value
+        """
+        pass
+
 
 class SetBlacklist(Blacklist):
+
+    def get_top_accounts(self, number, currencies) -> dict:
+        pass
 
     def __init__(self):
         super().__init__()
@@ -116,7 +130,7 @@ class SetBlacklist(Blacklist):
     def add_account_to_blacklist(self, account: str, block: int):
         self._blacklist.add(account)
 
-    def get_account_blacklist_value(self, account: str, currency: int = None):
+    def get_account_blacklist_value(self, account: str, currency: int = None) -> int:
         return 0
 
     def add_currency_to_all(self, account: str, currency: str):
@@ -132,6 +146,22 @@ class DictBlacklist(Blacklist):
     def __init__(self):
         super().__init__()
         self._blacklist = {}
+
+    def get_top_accounts(self, number, currencies) -> dict:
+        all_accounts: dict = {}
+
+        for account in self._blacklist:
+            value = 0
+            for currency in currencies:
+                value += self.get_account_blacklist_value(account, currency)
+            all_accounts[account] = value
+
+        if len(all_accounts) < number:
+            result_list = sorted(all_accounts, key=all_accounts.get)
+        else:
+            result_list = sorted(all_accounts, key=all_accounts.get)[-number:]
+
+        return {account: all_accounts[account] for account in result_list}
 
     def set_blacklist(self, blacklist: dict):
         self._blacklist = blacklist
@@ -172,7 +202,7 @@ class DictBlacklist(Blacklist):
         # set all flag or clear it
         self._blacklist[account]["all"] = []
 
-    def get_account_blacklist_value(self, account: str, currency: int):
+    def get_account_blacklist_value(self, account: str, currency: str) -> int:
         if account not in self._blacklist or currency not in self._blacklist[account]:
             return 0
 
@@ -217,6 +247,22 @@ class FIFOBlacklist(Blacklist):
         super(FIFOBlacklist, self).__init__()
         self._blacklist = {}
 
+    def get_top_accounts(self, number, currencies) -> dict:
+        all_accounts: dict = {}
+
+        for account in self._blacklist:
+            value = 0
+            for currency in currencies:
+                value += self.get_account_blacklist_value(account, currency)
+            all_accounts[account] = value
+
+        if len(all_accounts) < number:
+            result_list = sorted(all_accounts, key=all_accounts.get)
+        else:
+            result_list = sorted(all_accounts, key=all_accounts.get)[-number:]
+
+        return {account: all_accounts[account] for account in result_list}
+
     def add_to_blacklist(self, address: str, currency: str, amount: int, total_amount=None):
         if total_amount is None:
             total_amount = amount
@@ -228,7 +274,14 @@ class FIFOBlacklist(Blacklist):
         # add currency if not in blacklist[address]
         if currency not in self._blacklist[address]:
             self._blacklist[address][currency] = []
+
         self._blacklist[address][currency].append([amount, total_amount])
+
+        # remove address and currency if value is 0
+        if self.get_account_blacklist_value(address, currency) == 0:
+            self._blacklist[address].pop(currency)
+        if not self._blacklist[address]:
+            self._blacklist.pop(address)
 
     def is_blacklisted(self, address: str, currency=None):
         if currency is None:
@@ -276,12 +329,12 @@ class FIFOBlacklist(Blacklist):
 
             amount -= amount_reduced
             if amount == 0:
-                return blacklisted_amount_removed
+                break
 
-        if not self._blacklist[address][currency]:
-            del self._blacklist[address][currency]
+        if self.get_account_blacklist_value(address, currency) == 0:
+            self._blacklist[address].pop(currency)
         if not self._blacklist[address]:
-            del self._blacklist[address]
+            self._blacklist.pop(address)
         return blacklisted_amount_removed
 
     def add_account_to_blacklist(self, account: str, block: int):
@@ -290,14 +343,14 @@ class FIFOBlacklist(Blacklist):
         # set all flag or clear it
         self._blacklist[account]["all"] = []
 
-    def get_account_blacklist_value(self, account: str, currency: int):
+    def get_account_blacklist_value(self, account: str, currency: str):
+        blacklisted_value = 0
         if account not in self._blacklist or currency not in self._blacklist[account]:
-            return 0
+            return blacklisted_value
 
         if currency == "all":
             return self._blacklist[account][currency]
 
-        blacklisted_value = 0
         for tx in self._blacklist[account][currency]:
             blacklisted_value += tx[0]
 

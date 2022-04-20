@@ -193,6 +193,10 @@ class BlacklistPolicy(ABC):
                     total_eth = None
                 self.save_checkpoint(self._checkpoint_file)
                 self.export_metrics(total_eth)
+                top_accounts = self._blacklist.get_top_accounts(5, ["ETH", self._eth_utils.WETH])
+                print("Top accounts:")
+                for account in reversed(top_accounts):
+                    print(f"\t{account}: {self.format_exp(top_accounts[account])} ETH")
 
         if self.get_policy_name() != "Poison":
             print("Blacklisted amounts:")
@@ -389,7 +393,7 @@ class BlacklistPolicy(ABC):
             self.add_currency_to_all(account, currency)
             # do not add the token to the blacklist if the balance is 0, 0-values in the blacklist can lead to issues
             if entire_balance > 0:
-                self.add_to_blacklist(address=account, amount=entire_balance, currency=currency)
+                self.add_to_blacklist(address=account, amount=entire_balance, currency=currency, total_amount=entire_balance)
                 self._logger.info(self._tx_log + f"Tainted entire balance ({self.format_exp(entire_balance)}) of token {currency} for account {account}.")
 
     def add_to_blacklist(self, address: str, amount: int, currency: str, total_amount: int = None):
@@ -485,7 +489,7 @@ class BlacklistPolicy(ABC):
 
         # blacklist all ETH
         eth_balance = self.get_balance(account=address, currency="ETH", block=block)
-        self.add_to_blacklist(address, amount=eth_balance, currency="ETH")
+        self.add_to_blacklist(address, amount=eth_balance, currency="ETH", total_amount=eth_balance)
 
         # blacklist all WETH
         self.fully_taint_token(address, self._eth_utils.WETH, overwrite=True, block=block)
