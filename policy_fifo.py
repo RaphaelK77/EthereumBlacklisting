@@ -9,7 +9,7 @@ class FIFOPolicy(BlacklistPolicy):
     def get_policy_name(self):
         return "FIFO"
 
-    def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None) -> int:
+    def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2: str = None) -> int:
         if currency_2 is None:
             currency_2 = currency
 
@@ -19,18 +19,21 @@ class FIFOPolicy(BlacklistPolicy):
             # amount by which the balance is higher than the value tracked by the blacklist
             untracked_balance = self.get_temp_balance(from_address, currency) - self._blacklist.get_tracked_value(from_address, currency)
             if untracked_balance < 0:
-                self._logger.warning(f"Tracked value {self.format_exp(self._blacklist.get_tracked_value(from_address, currency))} for account {from_address} is higher than " +
-                                     f"temp balance {self.format_exp(self.get_temp_balance(from_address, currency))} (currency: {currency})")
+                self._logger.warning(self._tx_log + f"Tracked value {self.format_exp(self._blacklist.get_tracked_value(from_address, currency), 10)} for account {from_address} is higher than " +
+                                     f"temp balance {self.format_exp(self.get_temp_balance(from_address, currency), 10)} (currency: {currency}); difference: " +
+                                     f"{self.format_exp(self._blacklist.get_tracked_value(from_address, currency) - self.get_temp_balance(from_address, currency))}")
 
             # if difference is higher than sent amount, do not send any taint
             sent_amount_tracked = amount_sent - untracked_balance
             if sent_amount_tracked > 0:
                 transferred_amount = self.remove_from_blacklist(from_address, sent_amount_tracked, currency)
             else:
-                self._logger.debug(self._tx_log + f"Tainted account {from_address} sent {amount_sent}, but tracked value {self.format_exp(self._blacklist.get_tracked_value(from_address, currency))}" +
-                                   f" is lower than temp balance after transaction ({self.format_exp(self.get_temp_balance(from_address, currency) - amount_sent)})")
+                self._logger.debug(
+                    self._tx_log + f"Tainted account {from_address} sent {self.format_exp(amount_sent)}, but tracked value " +
+                    f"{self.format_exp(self._blacklist.get_tracked_value(from_address, currency))}" +
+                    f" is lower than temp balance after transaction ({self.format_exp(self.get_temp_balance(from_address, currency) - amount_sent)})")
 
-        if self.is_blacklisted(to_address, currency) or transferred_amount > 0:
+        if (self.is_blacklisted(to_address, currency) or transferred_amount > 0) and to_address is not None:
             self.add_to_blacklist(address=to_address, amount=transferred_amount, currency=currency_2, total_amount=amount_sent)
 
             if currency == currency_2 and transferred_amount > 0:
@@ -51,16 +54,16 @@ class FIFOPolicy(BlacklistPolicy):
         total_fee_paid = gas_price * gas_used
         paid_to_miner = (gas_price - base_fee) * gas_used
 
-        tainted_fee_to_miner = 0
         tainted_fee = 0
 
-        if self.is_blacklisted(sender, "ETH"):
-            tainted_fee_to_miner = self.remove_from_blacklist(sender, paid_to_miner, "ETH")
-            # check blacklist status again in case the first remove cleared it
-            if self.is_blacklisted(sender, "ETH"):
-                tainted_fee = self.remove_from_blacklist(sender, total_fee_paid - paid_to_miner, "ETH")
+        # transfer taint for the part paid to the miner
+        tainted_fee_to_miner = self.transfer_taint(from_address=sender, to_address=miner, amount_sent=paid_to_miner, currency="ETH")
+        self.increase_temp_balance(miner, "ETH", paid_to_miner)
+        self.reduce_temp_balance(sender, "ETH", paid_to_miner)
 
-        self.add_to_blacklist(miner, tainted_fee_to_miner, "ETH", paid_to_miner)
+        # burn taint allocated to the burned part
+        self.transfer_taint(from_address=sender, to_address=None, amount_sent=total_fee_paid - paid_to_miner, currency="ETH")
+        self.reduce_temp_balance(sender, "ETH", total_fee_paid - paid_to_miner)
 
         if tainted_fee > 0:
             self._logger.debug(

@@ -140,9 +140,9 @@ class EthereumUtils:
         return self.w3.eth.contract(address=Web3.toChecksumAddress(address), abi=abi)
 
     @staticmethod
-    def format_exponential(input_number: int):
+    def format_exponential(input_number: int, decimals: int):
         if input_number > 0:
-            return format(input_number, ".2e")
+            return format(input_number, f".{decimals}e")
         else:
             return 0
 

@@ -99,6 +99,7 @@ class Blacklist(ABC):
 
     def get_tracked_value(self, account, currency):
         raise NotImplementedError("Only available for FIFO")
+        pass
 
 
 class SetBlacklist(Blacklist):

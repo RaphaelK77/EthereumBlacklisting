@@ -86,7 +86,7 @@ class BlacklistPolicy(ABC):
         # self._logger.debug(f"Increased temp balance of {currency} by {format(amount, '.2e')} for {account}")
 
     def reduce_temp_balance(self, account, currency, amount):
-        if account not in self.temp_balances:
+        if account not in self.temp_balances or currency not in self.temp_balances[account]:
             self.add_to_temp_balances(account, currency)
         self.temp_balances[account][currency] -= amount
 
@@ -498,7 +498,7 @@ class BlacklistPolicy(ABC):
         self._logger.info(f"Blacklisted entire balance of {self.format_exp(eth_balance)} wei (ETH) of account {address}")
 
     @abstractmethod
-    def transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str, currency_2=None) -> int:
+    def transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str, currency_2:str=None) -> int:
         pass
 
     @abstractmethod
@@ -529,5 +529,5 @@ class BlacklistPolicy(ABC):
 
         return self.temp_balances[account][currency]
 
-    def format_exp(self, number: int):
-        return self._eth_utils.format_exponential(number)
+    def format_exp(self, number: int, decimals: int = 2):
+        return self._eth_utils.format_exponential(number, decimals)
