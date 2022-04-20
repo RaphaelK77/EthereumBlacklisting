@@ -37,13 +37,10 @@ analytics_folder = parameters["AnalyticsFolder"]
 ETHERSCAN_API_KEY = parameters["EtherScanKey"]
 
 
-def policy_test(policy, start_block, block_number, load_checkpoint, metrics_folder=None, start_accounts: list = None, checkpoint_filename="blacklist_checkpoint.json"):
-    blacklist_policy = policy(w3, checkpoint_file=checkpoint_location + checkpoint_filename, log_folder=log_folder, metrics_folder=metrics_folder)
+def policy_test(policy, start_block, block_number, load_checkpoint, metrics_folder=None, start_accounts: list = None):
+    blacklist_policy = policy(w3, checkpoint_folder=checkpoint_location, log_folder=log_folder, metrics_folder=metrics_folder)
     for account in start_accounts:
         blacklist_policy.add_account_to_blacklist(address=account, block=start_block)
-    print(f"Blacklist at start: {blacklist_policy.get_blacklist()}")
-    print("Amounts:")
-    blacklist_policy.print_blacklisted_amount()
 
     blacklist_policy.propagate_blacklist(start_block, block_number, load_checkpoint=load_checkpoint)
 
@@ -87,19 +84,14 @@ if __name__ == '__main__':
     policy_id = int(sys.argv[1])
 
     if policy_id == 0:
-        policy_test(FIFOPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2,
-                    checkpoint_filename="checkpoint_fifo.json")
+        policy_test(FIFOPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     elif policy_id == 1:
-        policy_test(SeniorityPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2,
-                    checkpoint_filename="checkpoint_seniority.json")
+        policy_test(SeniorityPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     elif policy_id == 2:
-        policy_test(HaircutPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2,
-                    checkpoint_filename="checkpoint_haircut.json")
+        policy_test(HaircutPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     elif policy_id == 3:
-        policy_test(ReversedSeniorityPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2,
-                    checkpoint_filename="checkpoint_reversed_seniority.json")
+        policy_test(ReversedSeniorityPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     elif policy_id == 4:
-        policy_test(PoisonPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2,
-                    checkpoint_filename="checkpoint_poison.json")
+        policy_test(PoisonPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     else:
         print(f"Invalid policy id {policy_id}. Must be a number between 0 and 4.")

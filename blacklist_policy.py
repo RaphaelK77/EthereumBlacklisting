@@ -13,14 +13,14 @@ from ethereum_utils import EthereumUtils
 
 
 class BlacklistPolicy(ABC):
-    def __init__(self, w3: Web3, checkpoint_file, log_folder=None, metrics_folder=None):
+    def __init__(self, w3: Web3, checkpoint_folder, log_folder=None, metrics_folder=None):
         self.w3 = w3
         """ Web3 instance """
         self._write_queue = []
         self._logger = logging.getLogger(self.get_policy_name())
         self._logger.setLevel(logging.DEBUG)
         self._current_block = -1
-        self._checkpoint_file = checkpoint_file
+        self._checkpoint_file = f"{checkpoint_folder}{self.get_policy_name().replace(' ', '_')}.json"
         self._current_tx = ""
         self.temp_balances = None
         if metrics_folder:
@@ -67,8 +67,16 @@ class BlacklistPolicy(ABC):
 
     def clear_metrics_file(self):
         if self.metrics_file:
-            with open(self.metrics_file, "w") as out_file:
-                out_file.write("Block,Unique accounts,Total ETH\n")
+            print("WARNING: clearing metrics file. Enter 'y' to continue.")
+            response = input(">> ")
+            if response.lower() != "y":
+                print("Exiting.")
+                exit(0)
+            else:
+                print("Clearing confirmed. Continuing.")
+
+                with open(self.metrics_file, "w") as out_file:
+                    out_file.write("Block,Unique accounts,Total ETH\n")
 
     def increase_temp_balance(self, account, currency, amount):
         if account not in self.temp_balances:
@@ -140,6 +148,7 @@ class BlacklistPolicy(ABC):
             interval = 500
 
         loop_start_block = start_block
+        self._current_block = start_block
 
         if load_checkpoint:
             saved_block, saved_blacklist = self.load_from_checkpoint(self._checkpoint_file)
@@ -155,9 +164,15 @@ class BlacklistPolicy(ABC):
                 self.clear_log()
                 self.clear_metrics_file()
                 self._logger.info(f"Saved block {saved_block} is not in the correct range. Starting from start block.")
+                print("Starting amounts:")
+                total_eth = self.print_blacklisted_amount()
+                self.export_metrics(total_eth)
         else:
             self.clear_log()
             self.clear_metrics_file()
+            print("Starting amounts:")
+            total_eth = self.print_blacklisted_amount()
+            self.export_metrics(total_eth)
 
         for i in range(loop_start_block, start_block + block_amount):
             self.check_block(i)
