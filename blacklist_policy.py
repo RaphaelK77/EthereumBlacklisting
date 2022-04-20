@@ -307,7 +307,7 @@ class BlacklistPolicy(ABC):
             transferred_amount = self.transfer_taint(dst, dst, value, "ETH", self._eth_utils.WETH)
 
             if transferred_amount > 0:
-                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(transferred_amount, '.2e')} tainted ({format(value, '.2e')} total) ETH of {dst} to WETH.")
+                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {self.format_exp(transferred_amount)} tainted ({self.format_exp(value)} total) ETH of {dst} to WETH.")
 
             self.reduce_temp_balance(dst, "ETH", value)
             self.increase_temp_balance(dst, self._eth_utils.WETH, value)
@@ -324,7 +324,7 @@ class BlacklistPolicy(ABC):
             transferred_amount = self.transfer_taint(src, src, value, self._eth_utils.WETH, "ETH")
 
             if transferred_amount > 0:
-                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {format(transferred_amount, '.2e')} tainted ({format(value, '.2e')} total) WETH of {src} to ETH.")
+                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {self.format_exp(transferred_amount)} tainted ({self.format_exp(value)} total) WETH of {src} to ETH.")
 
             self.increase_temp_balance(src, "ETH", value)
             self.reduce_temp_balance(src, self._eth_utils.WETH, value)
@@ -375,7 +375,7 @@ class BlacklistPolicy(ABC):
             # do not add the token to the blacklist if the balance is 0, 0-values in the blacklist can lead to issues
             if entire_balance > 0:
                 self.add_to_blacklist(address=account, amount=entire_balance, currency=currency)
-                self._logger.info(self._tx_log + f"Tainted entire balance ({format(entire_balance, '.2e')}) of token {currency} for account {account}.")
+                self._logger.info(self._tx_log + f"Tainted entire balance ({self.format_exp(entire_balance)}) of token {currency} for account {account}.")
 
     def add_to_blacklist(self, address: str, amount: int, currency: str, total_amount: int = None):
         """
@@ -389,7 +389,7 @@ class BlacklistPolicy(ABC):
         self._blacklist.add_to_blacklist(address, currency=currency, amount=amount, total_amount=total_amount)
 
         if amount > 0:
-            self._logger.debug(self._tx_log + f"Added {format(amount, '.2e')} of blacklisted currency {currency} to account {address}.")
+            self._logger.debug(self._tx_log + f"Added {self.format_exp(amount)} of blacklisted currency {currency} to account {address}.")
 
     def is_blacklisted(self, address: str, currency: Optional[str] = None):
         return self._blacklist.is_blacklisted(address, currency)
@@ -439,7 +439,7 @@ class BlacklistPolicy(ABC):
         ret_val = self._blacklist.remove_from_blacklist(address, amount, currency)
 
         if ret_val > 0:
-            self._logger.debug(self._tx_log + f"Removed {format(ret_val, '.2e')} of blacklisted currency {currency} from account {address}.")
+            self._logger.debug(self._tx_log + f"Removed {self.format_exp(ret_val)} of blacklisted currency {currency} from account {address}.")
         elif ret_val == -1:
             self._logger.debug(self._tx_log + f"Removed address {address} from blacklist.")
 
@@ -476,7 +476,7 @@ class BlacklistPolicy(ABC):
         self.fully_taint_token(address, self._eth_utils.WETH, overwrite=True, block=block)
 
         self._logger.info(f"Added entire account of {address} to the blacklist.")
-        self._logger.info(f"Blacklisted entire balance of {format(eth_balance, '.2e')} wei (ETH) of account {address}")
+        self._logger.info(f"Blacklisted entire balance of {self.format_exp(eth_balance)} wei (ETH) of account {address}")
 
     @abstractmethod
     def transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str, currency_2=None) -> int:
@@ -498,8 +498,8 @@ class BlacklistPolicy(ABC):
                 blacklist_value = self.get_blacklist_value(account, currency)
                 balance = self.get_balance(account, currency, self._current_block + 1)
                 if blacklist_value > balance:
-                    self._logger.warning(f"Blacklist value {format(blacklist_value, '.2e')} for account {account} and currency {currency} is greater than balance {format(balance, '.2e')} " +
-                                         f"(difference: {format(blacklist_value - balance, '.2e')})")
+                    self._logger.warning(f"Blacklist value {self.format_exp(blacklist_value)} for account {account} and currency {currency} is greater than balance {self.format_exp(balance)} " +
+                                         f"(difference: {self.format_exp(blacklist_value - balance)})")
 
     def get_temp_balance(self, account, currency) -> int:
         if account not in self.temp_balances or currency not in self.temp_balances[account]:
@@ -509,3 +509,6 @@ class BlacklistPolicy(ABC):
             self.temp_balances[account]["fetched"].append(currency)
 
         return self.temp_balances[account][currency]
+
+    def format_exp(self, number: int):
+        return self._eth_utils.format_exponential(number)

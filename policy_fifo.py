@@ -27,9 +27,9 @@ class FIFOPolicy(BlacklistPolicy):
         if self.is_blacklisted(to_address, currency) or transferred_amount > 0:
             self.add_to_blacklist(address=to_address, amount=transferred_amount, currency=currency_2, total_amount=amount_sent)
 
-            if currency == currency_2:
-                self._logger.debug(self._tx_log + f"Transferred {format(transferred_amount, '.2e')} taint " +
-                                   f"({format(amount_sent, '.2e')} total) of {currency} from {from_address} to {to_address}")
+            if currency == currency_2 and transferred_amount > 0:
+                self._logger.debug(self._tx_log + f"Transferred {self.format_exp(transferred_amount)} taint " +
+                                   f"({self.format_exp(amount_sent)} total) of {currency} from {from_address} to {to_address}")
 
         return transferred_amount
 
@@ -57,4 +57,5 @@ class FIFOPolicy(BlacklistPolicy):
         self.add_to_blacklist(miner, tainted_fee_to_miner, "ETH", paid_to_miner)
 
         if tainted_fee > 0:
-            self._logger.debug(self._tx_log + f"Fee: Removed {format(tainted_fee, '.2e')} wei taint from {sender}, and transferred {format(tainted_fee_to_miner, '.2e')} wei of which to miner {miner}")
+            self._logger.debug(
+                self._tx_log + f"Fee: Removed {self.format_exp(tainted_fee)} wei taint from {sender}, and transferred {self.format_exp(tainted_fee_to_miner)} wei of which to miner {miner}")

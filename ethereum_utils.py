@@ -139,6 +139,13 @@ class EthereumUtils:
 
         return self.w3.eth.contract(address=Web3.toChecksumAddress(address), abi=abi)
 
+    @staticmethod
+    def format_exponential(input_number: int):
+        if input_number > 0:
+            return format(input_number, ".2e")
+        else:
+            return 0
+
     def get_all_events_of_type_in_tx(self, receipt: AttributeDict, event_types: List[str]):
         """
         Retrieves all events of the given types from the logs of the given transaction
