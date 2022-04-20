@@ -16,18 +16,18 @@ class FIFOPolicy(BlacklistPolicy):
         transferred_amount = 0
 
         if self.is_blacklisted(from_address, currency):
-            # amount by which the balance is higher than the blacklisted value
-            difference = self.get_temp_balance(from_address, currency) - self.get_blacklist_value(from_address, currency)
-            if difference < 0:
-                self._logger.warning(f"Blacklist value {self.format_exp(self.get_blacklist_value(from_address, currency))} for account {from_address} is higher than " +
-                                     f"temp balance {self.format_exp(self.get_temp_balance(from_address, currency))}")
+            # amount by which the balance is higher than the value tracked by the blacklist
+            untracked_balance = self.get_temp_balance(from_address, currency) - self._blacklist.get_tracked_value(from_address, currency)
+            if untracked_balance < 0:
+                self._logger.warning(f"Tracked value {self.format_exp(self._blacklist.get_tracked_value(from_address, currency))} for account {from_address} is higher than " +
+                                     f"temp balance {self.format_exp(self.get_temp_balance(from_address, currency))} (currency: {currency})")
 
             # if difference is higher than sent amount, do not send any taint
-            sent_amount_blacklisted = amount_sent - difference
-            if sent_amount_blacklisted > 0:
-                transferred_amount = self.remove_from_blacklist(from_address, amount_sent, currency)
+            sent_amount_tracked = amount_sent - untracked_balance
+            if sent_amount_tracked > 0:
+                transferred_amount = self.remove_from_blacklist(from_address, sent_amount_tracked, currency)
             else:
-                self._logger.debug(self._tx_log + f"Tainted account {from_address} sent {amount_sent}, but taint value {self.format_exp(self.get_blacklist_value(from_address, currency))}" +
+                self._logger.debug(self._tx_log + f"Tainted account {from_address} sent {amount_sent}, but tracked value {self.format_exp(self._blacklist.get_tracked_value(from_address, currency))}" +
                                    f" is lower than temp balance after transaction ({self.format_exp(self.get_temp_balance(from_address, currency) - amount_sent)})")
 
         if self.is_blacklisted(to_address, currency) or transferred_amount > 0:

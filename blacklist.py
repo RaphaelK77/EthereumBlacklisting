@@ -97,6 +97,9 @@ class Blacklist(ABC):
         """
         pass
 
+    def get_tracked_value(self, account, currency):
+        raise NotImplementedError("Only available for FIFO")
+
 
 class SetBlacklist(Blacklist):
 
@@ -246,6 +249,16 @@ class FIFOBlacklist(Blacklist):
     def __init__(self):
         super(FIFOBlacklist, self).__init__()
         self._blacklist = {}
+
+    def get_tracked_value(self, account, currency):
+        tracked_value = 0
+        if account not in self._blacklist or currency not in self._blacklist[account]:
+            return tracked_value
+
+        for tx in self._blacklist[account][currency]:
+            tracked_value += tx[1]
+
+        return tracked_value
 
     def get_top_accounts(self, number, currencies) -> dict:
         all_accounts: dict = {}
