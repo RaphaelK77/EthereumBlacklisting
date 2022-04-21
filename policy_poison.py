@@ -56,7 +56,8 @@ class PoisonPolicy(BlacklistPolicy):
         pass
 
     def sanity_check(self):
-        pass
+        if self.is_blacklisted(self._eth_utils.null_address):
+            self._logger.warning("Null address is blacklisted.")
 
     def _get_temp_balance(self, account, currency) -> int:
         # overwrite unnecessary function
