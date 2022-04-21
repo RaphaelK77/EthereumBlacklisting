@@ -3,6 +3,11 @@ from blacklist_policy import BlacklistPolicy
 
 
 class HaircutPolicy(BlacklistPolicy):
+    """
+    Haircut policy.
+    Taints every transaction from a tainted account proportionally to the degree their account is tainted.
+    """
+
     def init_blacklist(self):
         return DictBlacklist()
 

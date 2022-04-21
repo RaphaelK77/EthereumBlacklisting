@@ -3,6 +3,11 @@ from blacklist_policy import BlacklistPolicy
 
 
 class FIFOPolicy(BlacklistPolicy):
+    """
+    FIFO Policy.
+    Keeps track of incoming transactions to tainted accounts and transfers taint in the order it was received.
+    """
+
     def init_blacklist(self):
         return FIFOBlacklist()
 

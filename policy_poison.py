@@ -3,6 +3,10 @@ from blacklist_policy import BlacklistPolicy
 
 
 class PoisonPolicy(BlacklistPolicy):
+    """
+    Poison policy.
+    Keeps a list of fully tainted accounts and taints every account that receives a transaction from a tainted account.
+    """
 
     def init_blacklist(self):
         return SetBlacklist()

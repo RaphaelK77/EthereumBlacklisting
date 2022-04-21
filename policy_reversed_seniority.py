@@ -3,6 +3,11 @@ from blacklist_policy import BlacklistPolicy
 
 
 class ReversedSeniorityPolicy(BlacklistPolicy):
+    """
+    Reversed seniority policy.
+    Taint is transferred in a last-out fashion.
+    """
+
     def init_blacklist(self):
         return DictBlacklist()
 

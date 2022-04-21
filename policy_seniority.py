@@ -3,6 +3,13 @@ from blacklist_policy import BlacklistPolicy
 
 
 class SeniorityPolicy(BlacklistPolicy):
+    """
+    Seniority policy.
+    Taint is transferred in a first-out fashion.
+
+    Does not use temp balances, and therefore overrides them to do nothing.
+    """
+
     def init_blacklist(self):
         return DictBlacklist()
 
