@@ -32,11 +32,11 @@ class FIFOPolicy(BlacklistPolicy):
             sent_amount_tracked = amount_sent - untracked_balance
             if sent_amount_tracked > 0:
                 transferred_amount = self.remove_from_blacklist(from_address, sent_amount_tracked, currency)
-            else:
-                self._logger.debug(
-                    self._tx_log + f"Tainted account {from_address} sent {self._format_exp(amount_sent)}, but tracked value " +
-                    f"{self._format_exp(self._blacklist.get_tracked_value(from_address, currency))}" +
-                    f" is lower than temp balance after transaction ({self._format_exp(self._get_temp_balance(from_address, currency) - amount_sent)})")
+            # else:
+            #     self._logger.debug(
+            #         self._tx_log + f"Tainted account {from_address} sent {self._format_exp(amount_sent)}, but tracked value " +
+            #         f"{self._format_exp(self._blacklist.get_tracked_value(from_address, currency))}" +
+            #         f" is lower than temp balance after transaction ({self._format_exp(self._get_temp_balance(from_address, currency) - amount_sent)})")
 
         if (self.is_blacklisted(to_address, currency) or transferred_amount > 0) and to_address is not None:
             self.add_to_blacklist(address=to_address, amount=transferred_amount, currency=currency_2, total_amount=amount_sent)
