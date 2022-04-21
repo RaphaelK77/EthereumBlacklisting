@@ -38,6 +38,7 @@ class BlacklistPolicy(ABC):
         console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(formatter)
         self._logger.addHandler(console_handler)
+        self._tainted_transactions_per_account = {}
 
         self.log_file = f"{log_folder}{self.get_policy_name().replace(' ', '_')}.log"
 
@@ -153,7 +154,7 @@ class BlacklistPolicy(ABC):
         open(self.log_file, "w").close()
 
     def _save_checkpoint(self, file_path):
-        data = {"block": self._current_block, "blacklist": self._blacklist.get_blacklist()}
+        data = {"block": self._current_block, "blacklist": self._blacklist.get_blacklist(), "tainted transactions": self._tainted_transactions_per_account}
 
         with open(file_path, "w") as outfile:
             json.dump(data, outfile)
@@ -180,8 +181,9 @@ class BlacklistPolicy(ABC):
             return 0, {}
         last_block = data["block"]
         saved_blacklist = data["blacklist"]
+        tainted_transactions = data["tainted transactions"]
         self._logger.info(f"Loading saved data from {file_path}. Last block was {last_block}.")
-        return last_block, saved_blacklist
+        return last_block, saved_blacklist, tainted_transactions
 
     def propagate_blacklist(self, start_block, block_amount, load_checkpoint=False):
         """
@@ -206,7 +208,7 @@ class BlacklistPolicy(ABC):
         self._current_block = start_block
 
         if load_checkpoint:
-            saved_block, saved_blacklist = self.load_from_checkpoint(self._checkpoint_file)
+            saved_block, saved_blacklist, tainted_transactions = self.load_from_checkpoint(self._checkpoint_file)
             # only use loaded data if saved block is between start and end block
             if start_block + block_amount - 1 == saved_block:
                 self._logger.info("Target already reached. Exiting.")
@@ -214,6 +216,7 @@ class BlacklistPolicy(ABC):
             if start_block < saved_block < start_block + block_amount - 1:
                 loop_start_block = saved_block
                 self._blacklist.set_blacklist(saved_blacklist)
+                self._tainted_transactions_per_account = tainted_transactions
                 self._logger.info(f"Continuing from saved state. Progress is {format((loop_start_block - start_block) / block_amount * 100, '.2f')}%")
             else:
                 self._clear_log()
@@ -379,6 +382,15 @@ class BlacklistPolicy(ABC):
 
         self._process_gas_fees(transaction_log, transaction, full_block, sender)
 
+    def _record_tainted_transaction(self, sender, receiver):
+        if sender not in self._tainted_transactions_per_account:
+            self._tainted_transactions_per_account[sender] = {"incoming": 0, "outgoing": 0}
+        if receiver not in self._tainted_transactions_per_account:
+            self._tainted_transactions_per_account[receiver] = {"incoming": 0, "outgoing": 0}
+
+        self._tainted_transactions_per_account[sender]["outgoing"] += 1
+        self._tainted_transactions_per_account[receiver]["incoming"] += 1
+
     def _process_event(self, event):
         """
         Processes a deposit, withdrawal or transfer event or an internal transaction
@@ -439,7 +451,10 @@ class BlacklistPolicy(ABC):
                 self._add_to_temp_balances(account, currency)
 
             # if the sender is blacklisted, transfer taint to receiver
-            self._transfer_taint(transfer_sender, transfer_receiver, amount, currency)
+            transferred_amount = self._transfer_taint(transfer_sender, transfer_receiver, amount, currency)
+
+            if transferred_amount > 0:
+                self._record_tainted_transaction(transfer_sender, transfer_receiver)
 
             # update balances
             if transfer_sender != self._eth_utils.null_address:
@@ -565,6 +580,9 @@ class BlacklistPolicy(ABC):
 
         return ret_val
 
+    def get_tainted_transactions_per_account(self):
+        return self._tainted_transactions_per_account
+
     def get_blacklist_metrics(self):
         """
         Retrieve the underlying blacklist's metrics
@@ -685,3 +703,18 @@ class BlacklistPolicy(ABC):
         :return: number formatted as str
         """
         return self._eth_utils.format_exponential(number, decimals)
+
+    def print_tainted_transactions_per_account(self, number=10):
+        result_dict = dict(reversed(sorted(self._tainted_transactions_per_account.items(), key=lambda item: item[1]["incoming"] + item[1]["outgoing"])))
+
+        if len(result_dict) > number:
+            items = list(result_dict.items())[:number]
+        else:
+            items = result_dict.items()
+
+        for item in items:
+            print(f"\t{item[0]}:\t{item[1]}")
+
+        print(f"\tTotal: {sum([item[1]['incoming'] for item in result_dict.items()])} tainted transactions")
+
+        return

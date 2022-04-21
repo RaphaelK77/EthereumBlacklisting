@@ -101,6 +101,8 @@ class EthereumUtils:
                 return None
 
         value = int(internal_tx["action"]["value"], base=16)
+        if "callType" in internal_tx["action"] and (internal_tx["action"]["callType"] == "suicide" or internal_tx["action"]["callType"] == "selfdestruct"):
+            print(internal_tx["transactionHash"])
         if value > 0 and "callType" in internal_tx["action"] and internal_tx["action"]["callType"] == "call":
             # check if this transaction follows a reverted one, pass it if true (check value first to not clog up log file)
             for reverted_trace in self.reverted_traces:

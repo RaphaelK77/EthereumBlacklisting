@@ -29,6 +29,8 @@ class PoisonPolicy(BlacklistPolicy):
 
         self.add_to_blacklist(miner, self._current_block, currency="")
 
+        self._record_tainted_transaction(sender, miner)
+
     def get_blacklisted_amount(self) -> dict:
         blacklist = self._blacklist.get_blacklist()
         amounts = {"ETH": 0, self._eth_utils.WETH: 0}
