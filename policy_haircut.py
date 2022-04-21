@@ -9,7 +9,7 @@ class HaircutPolicy(BlacklistPolicy):
     def get_policy_name(self):
         return "Haircut"
 
-    def transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None) -> int:
+    def _transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None) -> int:
         if not self.is_blacklisted(from_address, currency):
             return 0
 
@@ -17,7 +17,7 @@ class HaircutPolicy(BlacklistPolicy):
             currency_2 = currency
 
         blacklist_value = self.get_blacklist_value(from_address, currency)
-        sender_balance = self.get_temp_balance(from_address, currency)
+        sender_balance = self._get_temp_balance(from_address, currency)
 
         taint_proportion = blacklist_value / sender_balance
 
@@ -41,7 +41,7 @@ class HaircutPolicy(BlacklistPolicy):
 
         return transferred_amount
 
-    def check_gas_fees(self, transaction_log, transaction, full_block, sender):
+    def _process_gas_fees(self, transaction_log, transaction, full_block, sender):
         if not self.is_blacklisted(sender, "ETH"):
             return
 
@@ -54,15 +54,15 @@ class HaircutPolicy(BlacklistPolicy):
         paid_to_miner = (gas_price - base_fee) * gas_used
 
         blacklist_value = self.get_blacklist_value(sender, "ETH")
-        sender_balance = self.get_temp_balance(sender, "ETH")
+        sender_balance = self._get_temp_balance(sender, "ETH")
 
         taint_proportion = blacklist_value / sender_balance
 
         tainted_fee = (total_fee_paid * blacklist_value) // sender_balance
         tainted_fee_to_miner = (paid_to_miner * blacklist_value) // sender_balance
 
-        self.reduce_temp_balance(sender, "ETH", total_fee_paid)
-        self.increase_temp_balance(miner, "ETH", paid_to_miner)
+        self._reduce_temp_balance(sender, "ETH", total_fee_paid)
+        self._increase_temp_balance(miner, "ETH", paid_to_miner)
 
         if tainted_fee == 0:
             return

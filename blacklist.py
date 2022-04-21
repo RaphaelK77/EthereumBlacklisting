@@ -20,7 +20,7 @@ class Blacklist(ABC):
         pass
 
     @abstractmethod
-    def is_blacklisted(self, address: str, currency=None):
+    def is_blacklisted(self, address: str, currency=None) -> bool:
         """
         Checks if the given address and currency are on the blacklist
 

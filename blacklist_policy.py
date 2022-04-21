@@ -13,6 +13,10 @@ from ethereum_utils import EthereumUtils
 
 
 class BlacklistPolicy(ABC):
+    """
+    Abstract superclass defining all functions a blacklist policy needs to implement.
+    """
+
     def __init__(self, w3: Web3, checkpoint_folder, log_folder=None, metrics_folder=None):
         self.w3 = w3
         """ Web3 instance """
@@ -50,13 +54,24 @@ class BlacklistPolicy(ABC):
 
     @abstractmethod
     def init_blacklist(self):
+        """
+        Create the blacklist object
+        """
         pass
 
     @abstractmethod
     def get_policy_name(self):
+        """
+        :return: the name of the current policy
+        """
         pass
 
     def export_metrics(self, total_eth):
+        """
+        Export the metrics to the given csv file
+
+        :param total_eth: total blacklisted Ether
+        """
         if self.metrics_file:
             with open(self.metrics_file, "a") as metrics_file_handler:
                 unique_accounts = self.get_blacklist_metrics()["UniqueTaintedAccounts"]
@@ -66,6 +81,10 @@ class BlacklistPolicy(ABC):
                     metrics_file_handler.write(f"{self._current_block},{unique_accounts},{format(total_eth, '.5e')}\n")
 
     def clear_metrics_file(self):
+        """
+        Delete the contents of the metrics file.
+        Asks for confirmation first.
+        """
         if self.metrics_file:
             print("WARNING: clearing metrics file. Enter 'y' to continue.")
             response = input(">> ")
@@ -78,21 +97,42 @@ class BlacklistPolicy(ABC):
                 with open(self.metrics_file, "w") as out_file:
                     out_file.write("Block,Unique accounts,Total ETH\n")
 
-    def increase_temp_balance(self, account, currency, amount):
+    def _increase_temp_balance(self, account, currency, amount):
+        """
+        Increase the temp balance of the given account and currency by amount
+
+        :param account: address
+        :param currency: token/ETH
+        :param amount: amount to increase by
+        """
         if account not in self.temp_balances:
-            self.add_to_temp_balances(account, currency)
+            self._add_to_temp_balances(account, currency)
         self.temp_balances[account][currency] += amount
 
         # self._logger.debug(f"Increased temp balance of {currency} by {format(amount, '.2e')} for {account}")
 
-    def reduce_temp_balance(self, account, currency, amount):
+    def _reduce_temp_balance(self, account, currency, amount):
+        """
+        Reduce the temp balance of the given account and currency by amount
+
+        :param account: address
+        :param currency: token/ETH
+        :param amount: amount to reduce by
+        """
         if account not in self.temp_balances or currency not in self.temp_balances[account]:
-            self.add_to_temp_balances(account, currency)
+            self._add_to_temp_balances(account, currency)
         self.temp_balances[account][currency] -= amount
 
         # self._logger.debug(f"Reduced temp balance of {currency} by {format(amount, '.2e')} for {account}")
 
-    def add_to_temp_balances(self, account, currency, get_balance=False):
+    def _add_to_temp_balances(self, account, currency, get_balance=False):
+        """
+        Add the given account & currency to temp balances
+
+        :param account: address
+        :param currency: token/ETH
+        :param get_balance: if True, fetch the current balance, else only track the changes
+        """
         if account is None:
             return
 
@@ -100,16 +140,19 @@ class BlacklistPolicy(ABC):
             self.temp_balances[account] = {"fetched": []}
         if currency not in self.temp_balances[account]:
             if get_balance:
-                balance = self.get_balance(account, currency, self._current_block)
+                balance = self._get_balance(account, currency, self._current_block)
                 self.temp_balances[account][currency] = balance
                 # self._logger.debug(self._tx_log + f"Added {account} with temp balance {format(balance, '.2e')} of {currency} (block {self._current_block}).")
             else:
                 self.temp_balances[account][currency] = 0
 
-    def clear_log(self):
+    def _clear_log(self):
+        """
+        Clear the log file
+        """
         open(self.log_file, "w").close()
 
-    def save_checkpoint(self, file_path):
+    def _save_checkpoint(self, file_path):
         data = {"block": self._current_block, "blacklist": self._blacklist.get_blacklist()}
 
         with open(file_path, "w") as outfile:
@@ -118,6 +161,11 @@ class BlacklistPolicy(ABC):
         self._logger.info(f"Successfully exported blacklist to {file_path}.")
 
     def export_blacklist(self, target_file):
+        """
+        Export the blacklist in json format
+
+        :param target_file: file to write to
+        """
         with open(target_file, "w") as outfile:
             json.dump(self._blacklist.get_blacklist(), outfile)
 
@@ -136,6 +184,13 @@ class BlacklistPolicy(ABC):
         return last_block, saved_blacklist
 
     def propagate_blacklist(self, start_block, block_amount, load_checkpoint=False):
+        """
+        Propagate the blacklist from the start block
+
+        :param start_block: block to start from
+        :param block_amount: amount of blocks to propagate for
+        :param load_checkpoint: whether the program should attempt to load an existing checkpoint
+        """
         start_time = time.time()
 
         if block_amount < 20:
@@ -161,21 +216,21 @@ class BlacklistPolicy(ABC):
                 self._blacklist.set_blacklist(saved_blacklist)
                 self._logger.info(f"Continuing from saved state. Progress is {format((loop_start_block - start_block) / block_amount * 100, '.2f')}%")
             else:
-                self.clear_log()
+                self._clear_log()
                 self.clear_metrics_file()
                 self._logger.info(f"Saved block {saved_block} is not in the correct range. Starting from start block.")
                 print("Starting amounts:")
                 total_eth = self.print_blacklisted_amount()
                 self.export_metrics(total_eth)
         else:
-            self.clear_log()
+            self._clear_log()
             self.clear_metrics_file()
             print("Starting amounts:")
             total_eth = self.print_blacklisted_amount()
             self.export_metrics(total_eth)
 
         for i in range(loop_start_block, start_block + block_amount):
-            self.check_block(i)
+            self._process_block(i)
 
             if (i - start_block) % interval == 0 and i - loop_start_block > 0 and i < start_block + block_amount:
                 total_blocks_scanned = i - start_block
@@ -191,12 +246,12 @@ class BlacklistPolicy(ABC):
                     total_eth = self.print_blacklisted_amount()
                 else:
                     total_eth = None
-                self.save_checkpoint(self._checkpoint_file)
+                self._save_checkpoint(self._checkpoint_file)
                 self.export_metrics(total_eth)
                 top_accounts = self._blacklist.get_top_accounts(5, ["ETH", self._eth_utils.WETH])
                 print("Top accounts:")
                 for account in reversed(top_accounts):
-                    print(f"\t{account}: {self.format_exp(top_accounts[account])} ETH")
+                    print(f"\t{account}: {self._format_exp(top_accounts[account])} ETH")
 
         if self.get_policy_name() != "Poison":
             print("Blacklisted amounts:")
@@ -208,13 +263,18 @@ class BlacklistPolicy(ABC):
             self.sanity_check()
             print("Sanity check complete.")
 
-        self.save_checkpoint(self._checkpoint_file)
+        self._save_checkpoint(self._checkpoint_file)
         end_time = time.time()
         self._logger.info(
             f"Propagation complete. Total time: {utils.format_seconds_as_time(end_time - start_time)}, performance: " +
             f"{format(((block_amount + start_block) - loop_start_block) / (end_time - start_time) * 60, '.0f')} blocks/min")
 
-    def check_block(self, block: int):
+    def _process_block(self, block: int):
+        """
+        Check the given block for tainted transactions and change the blacklist accordingly
+
+        :param block: block number
+        """
         # retrieve all necessary block data
         full_block = self.w3.eth.get_block(block, full_transactions=True)
         transactions: Sequence = full_block["transactions"]
@@ -235,8 +295,6 @@ class BlacklistPolicy(ABC):
             self._current_tx = transaction['hash'].hex()
 
             while traces:
-                # if transaction["hash"].hex() == "0x78a7bfd00fbdbef41ea4999a5044a2d7a760ab39236b16c2b672c406ccda5b56":
-                #     print("here")
                 # exclude block rewards
                 if "transactionHash" not in traces[0]:
                     traces.pop(0)
@@ -252,28 +310,36 @@ class BlacklistPolicy(ABC):
                     break
 
             try:
-                self.check_transaction(transaction_log=transaction_log, transaction=transaction, full_block=full_block, internal_transactions=internal_transactions)
+                self._process_transaction(transaction_log=transaction_log, transaction=transaction, full_block=full_block, internal_transactions=internal_transactions)
             except Exception as e:
                 self._logger.error(self._tx_log + f"Exception '{e}' occurred while processing transaction.")
                 raise e
 
-    def check_transaction(self, transaction_log, transaction, full_block, internal_transactions):
+    def _process_transaction(self, transaction_log, transaction, full_block, internal_transactions):
+        """
+        Processes the given transaction and changes the blacklist accordingly
+
+        :param transaction_log: transaction receipt (list of events)
+        :param transaction: full transaction
+        :param full_block: full block
+        :param internal_transactions: all internal transactions that should be processed
+        """
         sender = transaction["from"]
         receiver = transaction["to"]
 
         # skip failed transactions
         if transaction_log["status"] == 0:
             # self._logger.debug(self._tx_log + "Smart contract/transaction execution failed, only checking gas.")
-            self.check_gas_fees(transaction_log, transaction, full_block, sender)
+            self._process_gas_fees(transaction_log, transaction, full_block, sender)
             return
 
         # skip the remaining code if there were no smart contract events
         if not transaction_log["logs"] and len(internal_transactions) < 2:
             if internal_transactions:
-                self.process_event(internal_transactions[0])
+                self._process_event(internal_transactions[0])
 
             # if the sender (still) has any blacklisted ETH, taint the paid gas fees
-            self.check_gas_fees(transaction_log, transaction, full_block, sender)
+            self._process_gas_fees(transaction_log, transaction, full_block, sender)
             return
 
         # get all transfers
@@ -287,49 +353,54 @@ class BlacklistPolicy(ABC):
             if not internal_transactions:
                 self._logger.error(self._tx_log + f"No internal transactions found for transaction with value {format(transaction['value'], '.2e')}.")
                 exit(-1)
-            self.process_event(internal_transactions.pop(0))
+            self._process_event(internal_transactions.pop(0))
 
         for event in events:
             # ignore deposit and withdrawal events from other addresses than WETH
             if event["event"] == "Deposit" and self._eth_utils.is_weth(event["address"]):
                 if event["args"]["wad"] > 0:
                     while internal_transactions[0]["event"] != "Deposit":
-                        self.process_event(internal_transactions.pop(0))
+                        self._process_event(internal_transactions.pop(0))
                     internal_transactions.pop(0)
             elif event["event"] == "Withdrawal" and self._eth_utils.is_weth(event["address"]):
                 if event["args"]["wad"] > 0:
                     while internal_transactions[0]["event"] != "Withdrawal":
-                        self.process_event(internal_transactions.pop(0))
+                        self._process_event(internal_transactions.pop(0))
                     internal_transactions.pop(0)
 
-            self.process_event(event)
+            self._process_event(event)
 
         # process any remaining internal transactions
         for internal_tx in internal_transactions:
             if internal_tx["event"] == "Deposit" or internal_tx["event"] == "Withdrawal":
                 self._logger.warning(self._tx_log + f"Unaccounted for event of type {internal_tx['event']}.")
                 exit(-1)
-            self.process_event(internal_tx)
+            self._process_event(internal_tx)
 
-        self.check_gas_fees(transaction_log, transaction, full_block, sender)
+        self._process_gas_fees(transaction_log, transaction, full_block, sender)
 
-    def process_event(self, event):
+    def _process_event(self, event):
+        """
+        Processes a deposit, withdrawal or transfer event or an internal transaction
+
+        :param event: event dict
+        """
         if event["event"] == "Deposit":
             dst = event["args"]["dst"]
             value = event["args"]["wad"]
             if not self._eth_utils.is_weth(event["address"]):
                 return
 
-            self.add_to_temp_balances(dst, "ETH")
-            self.add_to_temp_balances(dst, self._eth_utils.WETH)
+            self._add_to_temp_balances(dst, "ETH")
+            self._add_to_temp_balances(dst, self._eth_utils.WETH)
 
-            transferred_amount = self.transfer_taint(dst, dst, value, "ETH", self._eth_utils.WETH)
+            transferred_amount = self._transfer_taint(dst, dst, value, "ETH", self._eth_utils.WETH)
 
             if transferred_amount > 0:
-                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {self.format_exp(transferred_amount)} tainted ({self.format_exp(value)} total) ETH of {dst} to WETH.")
+                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {self._format_exp(transferred_amount)} tainted ({self._format_exp(value)} total) ETH of {dst} to WETH.")
 
-            self.reduce_temp_balance(dst, "ETH", value)
-            self.increase_temp_balance(dst, self._eth_utils.WETH, value)
+            self._reduce_temp_balance(dst, "ETH", value)
+            self._increase_temp_balance(dst, self._eth_utils.WETH, value)
 
         elif event["event"] == "Withdrawal":
             src = event["args"]["src"]
@@ -337,16 +408,16 @@ class BlacklistPolicy(ABC):
             if not self._eth_utils.is_weth(event["address"]):
                 return
 
-            self.add_to_temp_balances(src, "ETH")
-            self.add_to_temp_balances(src, self._eth_utils.WETH)
+            self._add_to_temp_balances(src, "ETH")
+            self._add_to_temp_balances(src, self._eth_utils.WETH)
 
-            transferred_amount = self.transfer_taint(src, src, value, self._eth_utils.WETH, "ETH")
+            transferred_amount = self._transfer_taint(src, src, value, self._eth_utils.WETH, "ETH")
 
             if transferred_amount > 0:
-                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {self.format_exp(transferred_amount)} tainted ({self.format_exp(value)} total) WETH of {src} to ETH.")
+                self._logger.debug(self._tx_log + f"Processed Withdrawal. Converted {self._format_exp(transferred_amount)} tainted ({self._format_exp(value)} total) WETH of {src} to ETH.")
 
-            self.increase_temp_balance(src, "ETH", value)
-            self.reduce_temp_balance(src, self._eth_utils.WETH, value)
+            self._increase_temp_balance(src, "ETH", value)
+            self._reduce_temp_balance(src, self._eth_utils.WETH, value)
 
         # Transfer event, incl. internal transactions
         else:
@@ -365,36 +436,49 @@ class BlacklistPolicy(ABC):
                 if currency != "ETH" and self.is_blacklisted(address=account, currency="all"):
                     self.fully_taint_token(account, currency)
 
-                self.add_to_temp_balances(account, currency)
+                self._add_to_temp_balances(account, currency)
 
             # if the sender is blacklisted, transfer taint to receiver
-            self.transfer_taint(transfer_sender, transfer_receiver, amount, currency)
+            self._transfer_taint(transfer_sender, transfer_receiver, amount, currency)
 
             # update balances
             if transfer_sender != self._eth_utils.null_address:
-                self.reduce_temp_balance(transfer_sender, currency, amount)
+                self._reduce_temp_balance(transfer_sender, currency, amount)
             if transfer_receiver != self._eth_utils.null_address:
-                self.increase_temp_balance(transfer_receiver, currency, amount)
+                self._increase_temp_balance(transfer_receiver, currency, amount)
 
             # self._logger.debug(self._tx_log + f"Transferred {format(amount, '.2e')} temp balance of {currency} from {transfer_sender} to {transfer_receiver} ")
 
         return
 
     def get_blacklist(self):
+        """
+        Retrieves the full blacklist
+
+        :return: the blacklist as the respective data structure
+        """
         return self._blacklist.get_blacklist()
 
     def fully_taint_token(self, account, currency, overwrite=False, block=None):
+        """
+        Taints the account's entire balance of the given token
+
+        :param account: Ethereum account
+        :param currency: token address (ETH is not valid)
+        :param overwrite: if True, will taint the entire balance even if it has been tainted before
+        :param block: block at which to get the balance
+        """
         if block is None:
             block = self._current_block
         # taint entire balance of this token if not already done
         if currency not in self.get_blacklist_value(account, "all") or overwrite:
-            entire_balance = self.get_balance(account, currency, block)
+            entire_balance = self._get_balance(account, currency, block)
             # add token to "all"-list to mark it as done
-            self.add_currency_to_all(account, currency)
+            self._add_currency_to_all(account, currency)
             # do not add the token to the blacklist if the balance is 0, 0-values in the blacklist can lead to issues
             if entire_balance > 0:
                 self.add_to_blacklist(address=account, amount=entire_balance, currency=currency, total_amount=entire_balance)
-                self._logger.info(self._tx_log + f"Tainted entire balance ({self.format_exp(entire_balance)}) of token {currency} for account {account}.")
+                self._logger.info(self._tx_log + f"Tainted entire balance ({self._format_exp(entire_balance)}) of token {currency} for account {account}.")
 
     def add_to_blacklist(self, address: str, amount: int, currency: str, total_amount: int = None):
         """
@@ -408,21 +492,38 @@ class BlacklistPolicy(ABC):
         self._blacklist.add_to_blacklist(address, currency=currency, amount=amount, total_amount=total_amount)
 
         if amount > 0:
-            self._logger.debug(self._tx_log + f"Added {self.format_exp(amount)} of blacklisted currency {currency} to account {address}.")
+            self._logger.debug(self._tx_log + f"Added {self._format_exp(amount)} of blacklisted currency {currency} to account {address}.")
 
-    def is_blacklisted(self, address: str, currency: Optional[str] = None):
+    def is_blacklisted(self, address: str, currency: Optional[str] = None) -> bool:
+        """
+        Check if the address possesses any blacklisted value of given currency
+
+        :param address: Ethereum address
+        :param currency: token or ETH; if not given, checks if account has any blacklisted currency
+        :return: True if in blacklist
+        """
         return self._blacklist.is_blacklisted(address, currency)
 
-    def add_currency_to_all(self, address, currency):
+    def _add_currency_to_all(self, address, currency):
         return self._blacklist.add_currency_to_all(address, currency)
 
     def get_blacklist_value(self, account, currency):
         return self._blacklist.get_account_blacklist_value(account, currency)
 
     def get_blacklisted_amount(self) -> dict:
+        """
+        Get the total blacklisted amounts for each currency
+
+        :return: dict of currency: amount
+        """
         return self._blacklist.get_blacklisted_amount()
 
     def print_blacklisted_amount(self):
+        """
+        Print the total blacklisted amounts for each currency
+
+        :return: total blacklisted ETH (ETH & WETH)
+        """
         blacklisted_amounts = self.get_blacklisted_amount()
         print("{")
         for currency in blacklisted_amounts:
@@ -458,16 +559,29 @@ class BlacklistPolicy(ABC):
         ret_val = self._blacklist.remove_from_blacklist(address, amount, currency)
 
         if ret_val > 0:
-            self._logger.debug(self._tx_log + f"Removed {self.format_exp(ret_val)} of blacklisted currency {currency} from account {address}.")
+            self._logger.debug(self._tx_log + f"Removed {self._format_exp(ret_val)} of blacklisted currency {currency} from account {address}.")
         elif ret_val == -1:
             self._logger.debug(self._tx_log + f"Removed address {address} from blacklist.")
 
         return ret_val
 
     def get_blacklist_metrics(self):
+        """
+        Retrieve the underlying blacklist's metrics
+
+        :return: dict of metric: value
+        """
         return self._blacklist.get_metrics()
 
-    def get_balance(self, account, currency, block) -> int:
+    def _get_balance(self, account, currency, block) -> int:
+        """
+        Retrieve the balance of the given account and currency at the given block
+
+        :param account: Ethereum account
+        :param currency: token address/ETH
+        :param block: block number
+        :return: balance, 0 if an error occurred
+        """
         balance = self._eth_utils.get_balance(account, currency, block)
         if balance == -1:
             self._logger.debug(self._tx_log + f"Balance for token {currency} and account {account} could not be retrieved.")
@@ -488,24 +602,49 @@ class BlacklistPolicy(ABC):
         self._blacklist.add_account_to_blacklist(address, block)
 
         # blacklist all ETH
-        eth_balance = self.get_balance(account=address, currency="ETH", block=block)
+        eth_balance = self._get_balance(account=address, currency="ETH", block=block)
         self.add_to_blacklist(address, amount=eth_balance, currency="ETH", total_amount=eth_balance)
 
         # blacklist all WETH
         self.fully_taint_token(address, self._eth_utils.WETH, overwrite=True, block=block)
 
         self._logger.info(f"Added entire account of {address} to the blacklist.")
-        self._logger.info(f"Blacklisted entire balance of {self.format_exp(eth_balance)} wei (ETH) of account {address}")
+        self._logger.info(f"Blacklisted entire balance of {self._format_exp(eth_balance)} wei (ETH) of account {address}")
 
     @abstractmethod
-    def transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str, currency_2:str=None) -> int:
+    def _transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str, currency_2: str = None) -> int:
+        """
+        Calculate the taint to be transferred and adjust the blacklist accordingly.
+        Different implementation for every policy.
+
+        :param from_address: sender address
+        :param to_address: receiver address
+        :param amount_sent: the amount sent
+        :param currency: the sent currency
+        :param currency_2: optional, gives the receiver a different currency than was sent, used for ETH-WETH conversion
+        :return:
+        """
         pass
 
     @abstractmethod
-    def check_gas_fees(self, transaction_log, transaction, full_block, sender):
+    def _process_gas_fees(self, transaction_log, transaction, full_block, sender):
+        """
+        Process any taint transferred by the gas fees of the given transaction.
+        Different implementation for every policy.
+
+        :param transaction_log: transaction receipt
+        :param transaction: full transaction
+        :param full_block: full block
+        :param sender: transaction sender
+        """
         pass
 
     def sanity_check(self):
+        """
+        Checks for any possible inconsistencies as a result of taint propagation.
+        Emits warnings it any are found.
+        """
+
         full_blacklist = self.get_blacklist()
 
         if self.is_blacklisted(self._eth_utils.null_address):
@@ -515,19 +654,34 @@ class BlacklistPolicy(ABC):
                 if currency == "all":
                     continue
                 blacklist_value = self.get_blacklist_value(account, currency)
-                balance = self.get_balance(account, currency, self._current_block + 1)
+                balance = self._get_balance(account, currency, self._current_block + 1)
                 if blacklist_value > balance:
-                    self._logger.warning(f"Blacklist value {self.format_exp(blacklist_value)} for account {account} and currency {currency} is greater than balance {self.format_exp(balance)} " +
-                                         f"(difference: {self.format_exp(blacklist_value - balance)})")
+                    self._logger.warning(f"Blacklist value {self._format_exp(blacklist_value)} for account {account} and currency {currency} is greater than balance {self._format_exp(balance)} " +
+                                         f"(difference: {self._format_exp(blacklist_value - balance)})")
 
-    def get_temp_balance(self, account, currency) -> int:
+    def _get_temp_balance(self, account, currency) -> int:
+        """
+        Retrieve the temp balance for the given account and currency.
+        Fetch the actual balance if not done yet.
+
+        :param account: Ethereum account
+        :param currency: token address or ETH
+        :return: temp balance as int
+        """
         if account not in self.temp_balances or currency not in self.temp_balances[account]:
-            self.add_to_temp_balances(account, currency)
+            self._add_to_temp_balances(account, currency)
         if currency not in self.temp_balances[account]["fetched"]:
-            self.temp_balances[account][currency] += self.get_balance(account, currency, self._current_block)
+            self.temp_balances[account][currency] += self._get_balance(account, currency, self._current_block)
             self.temp_balances[account]["fetched"].append(currency)
 
         return self.temp_balances[account][currency]
 
-    def format_exp(self, number: int, decimals: int = 2):
+    def _format_exp(self, number: int, decimals: int = 2) -> str:
+        """
+        Format number in exponential format
+
+        :param number: number to be formatted
+        :param decimals: numbers after comma, defaults to 2
+        :return: number formatted as str
+        """
         return self._eth_utils.format_exponential(number, decimals)

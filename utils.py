@@ -1,11 +1,12 @@
-import time
-
 from hexbytes import HexBytes
 from web3.datastructures import AttributeDict
 
 
 def format_seconds_as_time(seconds):
-    return time.strftime('%H:%M:%S', time.gmtime(seconds))
+    seconds = int(seconds)
+    minutes = seconds // 60
+    hours = minutes // 60
+    return f"{hours}:{format(minutes % 60,'02d')}:{format(seconds % 60,'02.0f')}"
 
 
 def format_log_dict(log_dict: AttributeDict) -> AttributeDict:
