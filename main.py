@@ -5,7 +5,6 @@ import sys
 import requests.exceptions
 from web3 import Web3
 
-import utils
 from policy_fifo import FIFOPolicy
 from policy_haircut import HaircutPolicy
 from policy_poison import PoisonPolicy
@@ -24,9 +23,6 @@ logger.addHandler(console_handler)
 config = configparser.ConfigParser()
 config.read("config.ini")
 parameters = config["PARAMETERS"]
-
-# read Infura API link from config
-remote_provider = Web3.HTTPProvider(parameters["InfuraLink"])
 
 # use default Erigon URL for local provider
 local_provider = Web3.HTTPProvider("http://localhost:8545")
@@ -48,6 +44,8 @@ def policy_test(policy, start_block, block_number, load_checkpoint, metrics_fold
         blacklist_policy.propagate_blacklist(start_block, block_number, load_checkpoint=load_checkpoint)
     except KeyboardInterrupt:
         print("Keyboard interrupt received. Closing program.")
+        print(f"Tainted transactions: ")
+        blacklist_policy.print_tainted_transactions_per_account()
         return
 
     blacklist_policy.export_blacklist("data/finished_blacklist.json")
@@ -60,11 +58,7 @@ if __name__ == '__main__':
     logger.info("************ Starting **************")
 
     # setup web3
-    w3_local = Web3(local_provider)
-    w3_remote = Web3(remote_provider)
-
-    # PICK WEB3 PROVIDER
-    w3 = w3_local
+    w3 = Web3(local_provider)
 
     # get the latest block and log it
     try:
@@ -94,14 +88,14 @@ if __name__ == '__main__':
     policy_id = int(sys.argv[1])
 
     if policy_id == 0:
-        policy_test(FIFOPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
+        policy_test(FIFOPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     elif policy_id == 1:
         policy_test(SeniorityPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     elif policy_id == 2:
-        policy_test(HaircutPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
+        policy_test(HaircutPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     elif policy_id == 3:
         policy_test(ReversedSeniorityPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     elif policy_id == 4:
-        policy_test(PoisonPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
+        policy_test(PoisonPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     else:
         print(f"Invalid policy id {policy_id}. Must be a number between 0 and 4.")
