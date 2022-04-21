@@ -76,10 +76,8 @@ class BlacklistPolicy(ABC):
         if self.metrics_file:
             with open(self.metrics_file, "a") as metrics_file_handler:
                 unique_accounts = self.get_blacklist_metrics()["UniqueTaintedAccounts"]
-                if total_eth is None:
-                    metrics_file_handler.write(f"{self._current_block},{unique_accounts},\n")
-                else:
-                    metrics_file_handler.write(f"{self._current_block},{unique_accounts},{format(total_eth, '.5e')}\n")
+                total_tainted_transactions = sum([item[1]['incoming'] for item in self._tainted_transactions_per_account.items()])
+                metrics_file_handler.write(f"{self._current_block},{unique_accounts},{self._format_exp(total_eth),5},{total_tainted_transactions}\n")
 
     def clear_metrics_file(self):
         """
@@ -96,7 +94,7 @@ class BlacklistPolicy(ABC):
                 print("Clearing confirmed. Continuing.")
 
                 with open(self.metrics_file, "w") as out_file:
-                    out_file.write("Block,Unique accounts,Total ETH\n")
+                    out_file.write("Block,Unique accounts,Total ETH,Tainted transactions\n")
 
     def _increase_temp_balance(self, account, currency, amount):
         """
@@ -252,9 +250,10 @@ class BlacklistPolicy(ABC):
                 self._save_checkpoint(self._checkpoint_file)
                 self.export_metrics(total_eth)
                 top_accounts = self._blacklist.get_top_accounts(5, ["ETH", self._eth_utils.WETH])
-                print("Top accounts:")
-                for account in reversed(top_accounts):
-                    print(f"\t{account}: {self._format_exp(top_accounts[account])} ETH")
+                if top_accounts:
+                    print("Top accounts:")
+                    for account in reversed(top_accounts):
+                        print(f"\t{account}: {self._format_exp(top_accounts[account])} ETH")
 
         if self.get_policy_name() != "Poison":
             print("Blacklisted amounts:")
@@ -694,7 +693,7 @@ class BlacklistPolicy(ABC):
 
         return self.temp_balances[account][currency]
 
-    def _format_exp(self, number: int, decimals: int = 2) -> str:
+    def _format_exp(self, number: Optional[int], decimals: int = 2) -> str:
         """
         Format number in exponential format
 
@@ -702,6 +701,8 @@ class BlacklistPolicy(ABC):
         :param decimals: numbers after comma, defaults to 2
         :return: number formatted as str
         """
+        if number is None:
+            return ""
         return self._eth_utils.format_exponential(number, decimals)
 
     def print_tainted_transactions_per_account(self, number=10):
