@@ -2,8 +2,10 @@ import configparser
 import logging
 import sys
 
+import requests.exceptions
 from web3 import Web3
 
+import utils
 from policy_fifo import FIFOPolicy
 from policy_haircut import HaircutPolicy
 from policy_poison import PoisonPolicy
@@ -42,7 +44,11 @@ def policy_test(policy, start_block, block_number, load_checkpoint, metrics_fold
     for account in start_accounts:
         blacklist_policy.add_account_to_blacklist(address=account, block=start_block)
 
-    blacklist_policy.propagate_blacklist(start_block, block_number, load_checkpoint=load_checkpoint)
+    try:
+        blacklist_policy.propagate_blacklist(start_block, block_number, load_checkpoint=load_checkpoint)
+    except KeyboardInterrupt:
+        print("Keyboard interrupt received. Closing program.")
+        return
 
     blacklist_policy.export_blacklist("data/finished_blacklist.json")
 
@@ -61,8 +67,12 @@ if __name__ == '__main__':
     w3 = w3_local
 
     # get the latest block and log it
-    latest_block = w3.eth.get_block_number()
-    logger.info(f"Latest block: {latest_block}.")
+    try:
+        latest_block = w3.eth.get_block_number()
+        logger.info(f"Latest block: {latest_block}.")
+    except requests.exceptions.ConnectionError:
+        print("No node found at the given address.")
+        exit(-1)
 
     # example block and transaction
     # bZx theft
@@ -84,13 +94,13 @@ if __name__ == '__main__':
     policy_id = int(sys.argv[1])
 
     if policy_id == 0:
-        policy_test(FIFOPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
+        policy_test(FIFOPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     elif policy_id == 1:
         policy_test(SeniorityPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     elif policy_id == 2:
         policy_test(HaircutPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     elif policy_id == 3:
-        policy_test(ReversedSeniorityPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
+        policy_test(ReversedSeniorityPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     elif policy_id == 4:
         policy_test(PoisonPolicy, start_block_2, block_amount, load_checkpoint=True, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
     else:
