@@ -525,6 +525,9 @@ class BlacklistPolicy(ABC):
         :param currency: token address
         :param amount: amount to be added
         """
+        # do not taint null address
+        if address == self._eth_utils.null_address:
+            return
         self._blacklist.add_to_blacklist(address, currency=currency, amount=amount, total_amount=total_amount)
 
         if amount > 0:

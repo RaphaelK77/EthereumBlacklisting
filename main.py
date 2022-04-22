@@ -86,6 +86,12 @@ if __name__ == '__main__':
     # vulcan forged hack
     dataset_1 = Dataset("Vulcan Forged Hack", 13793875, block_amount, ["0x48ad05a3B73c9E7fAC5918857687d6A11d2c73B1", "0xe3cD90be37A79D9da86b5E14E2F6042Cd0e53b66"], data_folder_root + "dataset_1/")
 
+    # afk system rug pull (tornado cash)
+    dataset_2 = Dataset("AFKSystem rugpull", 13200582, block_amount, ["0x56Eb4A5F64Fa21E13548b95109F42fa08A644628"], data_folder_root + "dataset_2/")
+
+    # AnubisDAO liquidity rug
+    dataset_3 = Dataset("AnubisDAO liquidity rug", 13510000, block_amount, ["0x872254d530Ae8983628cb1eAafC51F78D78c86D9", "0x9fc53c75046900d1F58209F50F534852aE9f912a"], data_folder_root + "dataset_3/")
+
     # ********* TESTING *************
 
     if len(sys.argv) != 2:

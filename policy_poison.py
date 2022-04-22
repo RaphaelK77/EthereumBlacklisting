@@ -18,7 +18,7 @@ class PoisonPolicy(BlacklistPolicy):
         if not self.is_blacklisted(from_address, currency) or self.is_blacklisted(to_address, currency):
             return 0
 
-        self.add_to_blacklist(to_address, self._current_block, currency="")
+        self.add_to_poison_blacklist(to_address, from_address)
         return 1
 
     def _process_gas_fees(self, transaction_log, transaction, full_block, sender):
@@ -27,7 +27,7 @@ class PoisonPolicy(BlacklistPolicy):
         if not self.is_blacklisted(sender, "ETH") or self.is_blacklisted(miner):
             return
 
-        self.add_to_blacklist(miner, self._current_block, currency="")
+        self.add_to_poison_blacklist(miner, sender)
 
         self._record_tainted_transaction(sender, miner)
 
@@ -40,6 +40,10 @@ class PoisonPolicy(BlacklistPolicy):
             amounts[self._eth_utils.WETH] += self._get_balance(account, self._eth_utils.WETH, self._current_block + 1)
 
         return amounts
+
+    def add_to_poison_blacklist(self, account, tainted_by):
+        self.add_to_blacklist(account, 0, "")
+        self._logger.debug(f"Account {account} was tainted by a transaction from {tainted_by}")
 
     def _increase_temp_balance(self, account, currency, amount):
         # overwrite unnecessary function
