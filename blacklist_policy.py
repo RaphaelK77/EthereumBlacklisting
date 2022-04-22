@@ -18,7 +18,7 @@ class BlacklistPolicy(ABC):
     Abstract superclass defining all functions a blacklist policy needs to implement.
     """
 
-    def __init__(self, w3: Web3, data_folder, export_metrics=False):
+    def __init__(self, w3: Web3, data_folder, export_metrics=True):
         self.w3 = w3
         """ Web3 instance """
 
