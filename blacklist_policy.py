@@ -4,6 +4,7 @@ import sys
 import time
 from abc import abstractmethod, ABC
 from typing import Optional, Sequence
+import os
 
 from web3 import Web3
 
@@ -17,20 +18,34 @@ class BlacklistPolicy(ABC):
     Abstract superclass defining all functions a blacklist policy needs to implement.
     """
 
-    def __init__(self, w3: Web3, checkpoint_folder, log_folder=None, metrics_folder=None):
+    def __init__(self, w3: Web3, data_folder, export_metrics=False):
         self.w3 = w3
         """ Web3 instance """
+
+        # add slash at end of data folder path if not already there
+        if data_folder[-1] != "/":
+            data_folder += "/"
+
         self._write_queue = []
         self._logger = logging.getLogger(self.get_policy_name())
         self._logger.setLevel(logging.DEBUG)
         self._current_block = -1
-        self._checkpoint_file = f"{checkpoint_folder}{self.get_policy_name().replace(' ', '_')}.json"
         self._current_tx = ""
         self.temp_balances = None
-        if metrics_folder:
-            self.metrics_file = f"{metrics_folder}{self.get_policy_name().replace(' ', '_')}.csv"
+
+        for folder in [f"{data_folder}", f"{data_folder}/checkpoints", f"{data_folder}/analytics", f"{data_folder}/logs"]:
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+
+        name = self.get_policy_name().replace(' ', '_')
+        self._checkpoint_file = f"{data_folder}checkpoints/{name}.json"
+
+        if export_metrics:
+            self.metrics_file = f"{data_folder}analytics/{name}.csv"
+            self.transaction_metrics_file = f"{data_folder}analytics/{name}_transactions.csv"
         else:
             self.metrics_file = None
+            self.transaction_metrics_file = None
 
         formatter = logging.Formatter("%(asctime)s %(name)s [%(levelname)s] %(message)s")
 
@@ -40,13 +55,12 @@ class BlacklistPolicy(ABC):
         self._logger.addHandler(console_handler)
         self._tainted_transactions_per_account = {}
 
-        self.log_file = f"{log_folder}{self.get_policy_name().replace(' ', '_')}.log"
+        self.log_file = f"{data_folder}logs/{self.get_policy_name().replace(' ', '_')}.log"
 
-        if log_folder:
-            file_handler = logging.FileHandler(self.log_file)
-            file_handler.setFormatter(formatter)
-            file_handler.setLevel(logging.DEBUG)
-            self._logger.addHandler(file_handler)
+        file_handler = logging.FileHandler(self.log_file)
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(logging.DEBUG)
+        self._logger.addHandler(file_handler)
 
         self._tx_log = ""
         self._eth_utils = EthereumUtils(w3, self._logger)
@@ -77,7 +91,15 @@ class BlacklistPolicy(ABC):
             with open(self.metrics_file, "a") as metrics_file_handler:
                 unique_accounts = self.get_blacklist_metrics()["UniqueTaintedAccounts"]
                 total_tainted_transactions = sum([item[1]['incoming'] for item in self._tainted_transactions_per_account.items()])
-                metrics_file_handler.write(f"{self._current_block},{unique_accounts},{self._format_exp(total_eth),5},{total_tainted_transactions}\n")
+                metrics_file_handler.write(f"{self._current_block},{unique_accounts},{self._format_exp(total_eth, 5)},{total_tainted_transactions}\n")
+
+    def export_tainted_transactions(self, min_tx):
+        if self.transaction_metrics_file:
+            with open(self.transaction_metrics_file, "w") as transaction_metrics_file:
+                transaction_metrics_file.write("Account,Incoming,Outgoing\n")
+                for item in reversed(sorted(self._tainted_transactions_per_account.items(), key=lambda i: i[1]["incoming"] + i[1]["outgoing"])):
+                    if item[1]["incoming"] + item[1]["outgoing"] > min_tx:
+                        transaction_metrics_file.write(f"{item[0]},{item[1]['incoming']},{item[1]['outgoing']}\n")
 
     def clear_metrics_file(self):
         """
@@ -176,7 +198,7 @@ class BlacklistPolicy(ABC):
                 data = json.load(checkpoint)
         except FileNotFoundError:
             self._logger.info(f"No file found under path {file_path}. Continuing without loading checkpoint.")
-            return 0, {}
+            return 0, {}, {}
         last_block = data["block"]
         saved_blacklist = data["blacklist"]
         tainted_transactions = data["tainted transactions"]

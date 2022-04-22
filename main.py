@@ -1,10 +1,12 @@
 import configparser
 import logging
 import sys
+from dataclasses import dataclass
 
 import requests.exceptions
 from web3 import Web3
 
+from blacklist_policy import BlacklistPolicy
 from policy_fifo import FIFOPolicy
 from policy_haircut import HaircutPolicy
 from policy_poison import PoisonPolicy
@@ -27,30 +29,40 @@ parameters = config["PARAMETERS"]
 # use default Erigon URL for local provider
 local_provider = Web3.HTTPProvider("http://localhost:8545")
 
-log_folder = parameters["LogFolder"]
-checkpoint_location = parameters["CheckpointLocation"]
-analytics_folder = parameters["AnalyticsFolder"]
+data_folder_root = parameters["DataFolder"]
 
 # read Etherscan API key from config
 ETHERSCAN_API_KEY = parameters["EtherScanKey"]
 
 
-def policy_test(policy, start_block, block_number, load_checkpoint, metrics_folder=None, start_accounts: list = None):
-    blacklist_policy = policy(w3, checkpoint_folder=checkpoint_location, log_folder=log_folder, metrics_folder=metrics_folder)
-    for account in start_accounts:
-        blacklist_policy.add_account_to_blacklist(address=account, block=start_block)
+@dataclass
+class Dataset:
+    name: str
+    start_block: int
+    block_number: int
+    start_accounts: list
+    data_folder: str
+
+
+def policy_test(policy, dataset: Dataset, load_checkpoint):
+    blacklist_policy: BlacklistPolicy = policy(w3, data_folder=dataset.data_folder)
+
+    print(f"Starting Policy test with policy '{blacklist_policy.get_policy_name()}' and dataset '{dataset.name}'.")
+
+    for account in dataset.start_accounts:
+        blacklist_policy.add_account_to_blacklist(address=account, block=dataset.start_block)
 
     try:
-        blacklist_policy.propagate_blacklist(start_block, block_number, load_checkpoint=load_checkpoint)
+        blacklist_policy.propagate_blacklist(dataset.start_block, dataset.block_number, load_checkpoint=load_checkpoint)
+        print("Metrics:")
+        print(blacklist_policy.get_blacklist_metrics())
+
     except KeyboardInterrupt:
         print("Keyboard interrupt received. Closing program.")
+    finally:
         print(f"Tainted transactions: ")
         blacklist_policy.print_tainted_transactions_per_account()
-        return
-
-    blacklist_policy.export_blacklist("data/finished_blacklist.json")
-
-    print(blacklist_policy.get_blacklist_metrics())
+        blacklist_policy.export_tainted_transactions(10)
 
 
 if __name__ == '__main__':
@@ -68,18 +80,13 @@ if __name__ == '__main__':
         print("No node found at the given address.")
         exit(-1)
 
-    # example block and transaction
-    # bZx theft
-    start_block = 13557100
-    start_accounts = ["0x74487eEd1E67F4787E8C0570E8D5d168a05254D4"]
+    # amount of blocks the blacklist policy should be propagated for
+    block_amount = 200000
 
     # vulcan forged hack
-    start_block_2 = 13793875
-    start_accounts_2 = ["0x48ad05a3B73c9E7fAC5918857687d6A11d2c73B1", "0xe3cD90be37A79D9da86b5E14E2F6042Cd0e53b66"]
+    dataset_1 = Dataset("Vulcan Forged Hack", 13793875, block_amount, ["0x48ad05a3B73c9E7fAC5918857687d6A11d2c73B1", "0xe3cD90be37A79D9da86b5E14E2F6042Cd0e53b66"], data_folder_root + "dataset_1/")
 
     # ********* TESTING *************
-
-    block_amount = 200000
 
     if len(sys.argv) != 2:
         print(f"Invalid argument string {sys.argv}.")
@@ -87,15 +94,17 @@ if __name__ == '__main__':
 
     policy_id = int(sys.argv[1])
 
+    dataset = dataset_1
+
     if policy_id == 0:
-        policy_test(FIFOPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
+        policy_test(FIFOPolicy, dataset, load_checkpoint=True)
     elif policy_id == 1:
-        policy_test(SeniorityPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
+        policy_test(SeniorityPolicy, dataset, load_checkpoint=True)
     elif policy_id == 2:
-        policy_test(HaircutPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
+        policy_test(HaircutPolicy, dataset, load_checkpoint=True)
     elif policy_id == 3:
-        policy_test(ReversedSeniorityPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
+        policy_test(ReversedSeniorityPolicy, dataset, load_checkpoint=True)
     elif policy_id == 4:
-        policy_test(PoisonPolicy, start_block_2, block_amount, load_checkpoint=False, metrics_folder=analytics_folder, start_accounts=start_accounts_2)
+        policy_test(PoisonPolicy, dataset, load_checkpoint=True)
     else:
         print(f"Invalid policy id {policy_id}. Must be a number between 0 and 4.")

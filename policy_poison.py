@@ -15,17 +15,17 @@ class PoisonPolicy(BlacklistPolicy):
         return "Poison"
 
     def _transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None) -> int:
-        if not self.is_blacklisted(from_address, currency):
+        if not self.is_blacklisted(from_address, currency) or self.is_blacklisted(to_address, currency):
             return 0
 
         self.add_to_blacklist(to_address, self._current_block, currency="")
         return 1
 
     def _process_gas_fees(self, transaction_log, transaction, full_block, sender):
-        if not self.is_blacklisted(sender, "ETH"):
-            return
-
         miner = full_block["miner"]
+
+        if not self.is_blacklisted(sender, "ETH") or self.is_blacklisted(miner):
+            return
 
         self.add_to_blacklist(miner, self._current_block, currency="")
 
