@@ -29,7 +29,7 @@ class PoisonPolicy(BlacklistPolicy):
 
         self.add_to_poison_blacklist(miner, sender)
 
-        self._record_tainted_transaction(sender, miner)
+        self._record_tainted_transaction(sender, miner, fee=True)
 
     def get_blacklisted_amount(self) -> dict:
         blacklist = self._blacklist.get_blacklist()

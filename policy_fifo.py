@@ -73,4 +73,4 @@ class FIFOPolicy(BlacklistPolicy):
         if tainted_fee > 0:
             self._logger.debug(
                 self._tx_log + f"Fee: Removed {self._format_exp(tainted_fee)} wei taint from {sender}, and transferred {self._format_exp(tainted_fee_to_miner)} wei of which to miner {miner}")
-            self._record_tainted_transaction(sender, miner)
+            self._record_tainted_transaction(sender, miner, fee=True)

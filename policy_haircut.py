@@ -75,7 +75,7 @@ class HaircutPolicy(BlacklistPolicy):
         self.remove_from_blacklist(sender, tainted_fee, "ETH")
         self.add_to_blacklist(miner, tainted_fee_to_miner, "ETH")
 
-        self._record_tainted_transaction(sender, miner)
+        self._record_tainted_transaction(sender, miner, fee=True)
 
         self._logger.debug(self._tx_log + f"Fee: Removed {format(tainted_fee, '.2e')} wei taint from {sender}, transferred {format(tainted_fee_to_miner, '.2e')} " +
                            f"to miner {miner} and burned {format(tainted_fee - tainted_fee_to_miner, '.2e')}, taint proportion was {taint_proportion * 100}%")

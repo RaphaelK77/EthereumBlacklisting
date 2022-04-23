@@ -403,18 +403,30 @@ class BlacklistPolicy(ABC):
 
         self._process_gas_fees(transaction_log, transaction, full_block, sender)
 
-    def _record_tainted_transaction(self, sender, receiver):
-        if sender not in self._tainted_transactions_per_account:
-            self._tainted_transactions_per_account[sender] = {"incoming": 0, "outgoing": 0}
-        if receiver not in self._tainted_transactions_per_account:
-            self._tainted_transactions_per_account[receiver] = {"incoming": 0, "outgoing": 0}
+    def _record_tainted_transaction(self, sender, receiver, fee=False):
+        """
+        Add a tainted transaction to the per-account records
 
-        self._tainted_transactions_per_account[sender]["outgoing"] += 1
-        self._tainted_transactions_per_account[receiver]["incoming"] += 1
+        :param sender: transaction sender
+        :param receiver: transaction receiver (can be a miner)
+        :param fee: whether the transaction was a mining fee
+        """
+        if sender not in self._tainted_transactions_per_account:
+            self._tainted_transactions_per_account[sender] = {"incoming": 0, "outgoing": 0, "incoming fee": 0, "outgoing fee": 0}
+        if receiver not in self._tainted_transactions_per_account:
+            self._tainted_transactions_per_account[receiver] = {"incoming": 0, "outgoing": 0, "incoming fee": 0, "outgoing fee": 0}
+
+        if fee:
+            self._tainted_transactions_per_account[sender]["outgoing fee"] += 1
+            self._tainted_transactions_per_account[receiver]["incoming fee"] += 1
+        else:
+            self._tainted_transactions_per_account[sender]["outgoing"] += 1
+            self._tainted_transactions_per_account[receiver]["incoming"] += 1
 
     def _process_event(self, event):
         """
-        Processes a deposit, withdrawal or transfer event or an internal transaction
+        Processes a deposit, withdrawal or transfer event or an internal transaction.
+        Update temporary balances and blacklist.
 
         :param event: event dict
         """
@@ -530,7 +542,7 @@ class BlacklistPolicy(ABC):
             return
         self._blacklist.add_to_blacklist(address, currency=currency, amount=amount, total_amount=total_amount)
 
-        if amount > 0:
+        if amount > 0 and self.get_policy_name() != "Haircut":
             self._logger.debug(self._tx_log + f"Added {self._format_exp(amount)} of blacklisted currency {currency} to account {address}.")
 
     def is_blacklisted(self, address: str, currency: Optional[str] = None) -> bool:
@@ -597,7 +609,7 @@ class BlacklistPolicy(ABC):
         """
         ret_val = self._blacklist.remove_from_blacklist(address, amount, currency)
 
-        if ret_val > 0:
+        if ret_val > 0 and self.get_policy_name() != "Haircut":
             self._logger.debug(self._tx_log + f"Removed {self._format_exp(ret_val)} of blacklisted currency {currency} from account {address}.")
         elif ret_val == -1:
             self._logger.debug(self._tx_log + f"Removed address {address} from blacklist.")
@@ -664,7 +676,7 @@ class BlacklistPolicy(ABC):
         :param amount_sent: the amount sent
         :param currency: the sent currency
         :param currency_2: optional, gives the receiver a different currency than was sent, used for ETH-WETH conversion
-        :return:
+        :return: amount of taint actually transferred
         """
         pass
 
@@ -731,6 +743,11 @@ class BlacklistPolicy(ABC):
         return self._eth_utils.format_exponential(number, decimals)
 
     def print_tainted_transactions_per_account(self, number=10):
+        """
+        Print the top number accounts by total amount of tainted transactions
+
+        :param number: how many accounts (at most)
+        """
         result_dict = dict(reversed(sorted(self._tainted_transactions_per_account.items(), key=lambda item: item[1]["incoming"] + item[1]["outgoing"])))
 
         if len(result_dict) > number:

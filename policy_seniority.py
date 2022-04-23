@@ -62,7 +62,7 @@ class SeniorityPolicy(BlacklistPolicy):
         self._reduce_temp_balance(sender, "ETH", total_fee_paid)
         self._increase_temp_balance(miner, "ETH", paid_to_miner)
 
-        self._record_tainted_transaction(sender, miner)
+        self._record_tainted_transaction(sender, miner, fee=True)
 
         self._logger.debug(self._tx_log + f"Fee: Removed {format(tainted_fee, '.2e')} wei taint from {sender}, and transferred {format(tainted_fee_to_miner, '.2e')} wei of which to miner {miner}")
 
