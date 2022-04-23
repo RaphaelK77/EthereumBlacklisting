@@ -94,12 +94,17 @@ class BlacklistPolicy(ABC):
                 metrics_file_handler.write(f"{self._current_block},{unique_accounts},{self._format_exp(total_eth, 5)},{total_tainted_transactions}\n")
 
     def export_tainted_transactions(self, min_tx):
+        """
+        Export the number of tainted transactions per account with a minimum of min_tx tainted transactions
+
+        :param min_tx: minimum number of tainted transactions, total of incoming and outgoing
+        """
         if self.transaction_metrics_file:
             with open(self.transaction_metrics_file, "w") as transaction_metrics_file:
-                transaction_metrics_file.write("Account,Incoming,Outgoing\n")
-                for item in reversed(sorted(self._tainted_transactions_per_account.items(), key=lambda i: i[1]["incoming"] + i[1]["outgoing"])):
-                    if item[1]["incoming"] + item[1]["outgoing"] > min_tx:
-                        transaction_metrics_file.write(f"{item[0]},{item[1]['incoming']},{item[1]['outgoing']}\n")
+                transaction_metrics_file.write("Account,Incoming,Outgoing,Incoming Fee,Outgoing Fee\n")
+                for item in reversed(sorted(self._tainted_transactions_per_account.items(), key=lambda i: i[1]["incoming"] + i[1]["outgoing"] + i[1]["outgoing fee"] + i[1]["incoming fee"])):
+                    if item[1]["incoming"] + item[1]["outgoing"] + item[1]["outgoing fee"] + item[1]["incoming fee"] > min_tx:
+                        transaction_metrics_file.write(f"{item[0]},{item[1]['incoming']},{item[1]['outgoing']},{item[1]['incoming fee']},{item[1]['outgoing fee']}\n")
 
     def clear_metrics_file(self):
         """
