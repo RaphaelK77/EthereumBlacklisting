@@ -93,8 +93,9 @@ if __name__ == '__main__':
     dataset_3 = Dataset("AnubisDAO liquidity rug", 13510000, block_amount, ["0x872254d530Ae8983628cb1eAafC51F78D78c86D9", "0x9fc53c75046900d1F58209F50F534852aE9f912a"],
                         data_folder_root + "dataset_3/")
 
-    # Permanently taint tornado cash
-    dataset_tornado = Dataset("Tornado.Cash", 1300000, block_amount, ["0xd90e2f925DA726b50C4Ed8D0Fb90Ad053324F31b"], data_folder_root + "tornado/")
+    # Permanently taint tornado cash (different accounts for 0.1, 1, 10 and 100 ETH)
+    dataset_tornado = Dataset("Tornado.Cash", 1300000, block_amount, ["0x910Cbd523D972eb0a6f4cAe4618aD62622b39DbF", "0x12D66f87A04A9E220743712cE6d9bB1B5616B8Fc",
+                                                                      "0x47CE0C6eD5B0Ce3d3A51fdb1C52DC66a7c3c2936", "0xA160cdAB225685dA1d56aa342Ad8841c3b53f291"], data_folder_root + "tornado/")
 
     # ********* TESTING *************
 
