@@ -41,34 +41,19 @@ class Dataset:
     data_folder: str
 
 
-def policy_test(policy, dataset: Dataset, load_checkpoint):
+def policy_test(policy, dataset: Dataset, load_checkpoint, permanently_taint=False):
     blacklist_policy: BlacklistPolicy = policy(w3, data_folder=dataset.data_folder)
 
     print(f"Starting Policy test with policy '{blacklist_policy.get_policy_name()}' and dataset '{dataset.name}'.")
 
     for account in dataset.start_accounts:
-        blacklist_policy.add_account_to_blacklist(address=account, block=dataset.start_block)
+        if permanently_taint:
+            blacklist_policy.permanently_taint_account(account)
+        else:
+            blacklist_policy.add_account_to_blacklist(address=account, block=dataset.start_block)
 
     try:
         blacklist_policy.propagate_blacklist(dataset.start_block, dataset.block_number, load_checkpoint=load_checkpoint)
-        print("Metrics:")
-        print(blacklist_policy.get_blacklist_metrics())
-
-    except KeyboardInterrupt:
-        print("Keyboard interrupt received. Closing program.")
-    finally:
-        print(f"Tainted transactions: ")
-        blacklist_policy.print_tainted_transactions_per_account()
-        blacklist_policy.export_tainted_transactions(10)
-
-
-def permanently_tainted_accounts_test(policy, start_block, block_amount, load_checkpoint, data_folder, tainted_accounts: list):
-    blacklist_policy: BlacklistPolicy = policy(w3, data_folder=data_folder)
-    for account in tainted_accounts:
-        blacklist_policy.permanently_taint_account(account)
-
-    try:
-        blacklist_policy.propagate_blacklist(start_block, block_amount, load_checkpoint=load_checkpoint)
         print("Metrics:")
         print(blacklist_policy.get_blacklist_metrics())
 
@@ -105,7 +90,11 @@ if __name__ == '__main__':
     dataset_2 = Dataset("AFKSystem rugpull", 13200582, block_amount, ["0x56Eb4A5F64Fa21E13548b95109F42fa08A644628"], data_folder_root + "dataset_2/")
 
     # AnubisDAO liquidity rug
-    dataset_3 = Dataset("AnubisDAO liquidity rug", 13510000, block_amount, ["0x872254d530Ae8983628cb1eAafC51F78D78c86D9", "0x9fc53c75046900d1F58209F50F534852aE9f912a"], data_folder_root + "dataset_3/")
+    dataset_3 = Dataset("AnubisDAO liquidity rug", 13510000, block_amount, ["0x872254d530Ae8983628cb1eAafC51F78D78c86D9", "0x9fc53c75046900d1F58209F50F534852aE9f912a"],
+                        data_folder_root + "dataset_3/")
+
+    # Permanently taint tornado cash
+    dataset_tornado = Dataset("Tornado.Cash", 1300000, block_amount, ["0xd90e2f925DA726b50C4Ed8D0Fb90Ad053324F31b"], data_folder_root + "tornado/")
 
     # ********* TESTING *************
 
@@ -115,19 +104,19 @@ if __name__ == '__main__':
 
     policy_id = int(sys.argv[1])
 
-    dataset = dataset_1
+    used_dataset = dataset_1
 
     load_checkpoint_all = True
 
     if policy_id == 0:
-        policy_test(FIFOPolicy, dataset, load_checkpoint=load_checkpoint_all)
+        policy_test(FIFOPolicy, used_dataset, load_checkpoint=load_checkpoint_all)
     elif policy_id == 1:
-        policy_test(SeniorityPolicy, dataset, load_checkpoint=load_checkpoint_all)
+        policy_test(SeniorityPolicy, used_dataset, load_checkpoint=load_checkpoint_all)
     elif policy_id == 2:
-        policy_test(HaircutPolicy, dataset, load_checkpoint=load_checkpoint_all)
+        policy_test(HaircutPolicy, used_dataset, load_checkpoint=load_checkpoint_all)
     elif policy_id == 3:
-        policy_test(ReversedSeniorityPolicy, dataset, load_checkpoint=load_checkpoint_all)
+        policy_test(ReversedSeniorityPolicy, used_dataset, load_checkpoint=load_checkpoint_all)
     elif policy_id == 4:
-        policy_test(PoisonPolicy, dataset, load_checkpoint=load_checkpoint_all)
+        policy_test(PoisonPolicy, used_dataset, load_checkpoint=load_checkpoint_all)
     else:
         print(f"Invalid policy id {policy_id}. Must be a number between 0 and 4.")
