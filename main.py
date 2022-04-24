@@ -31,9 +31,6 @@ local_provider = Web3.HTTPProvider("http://localhost:8545")
 
 data_folder_root = parameters["DataFolder"]
 
-# read Etherscan API key from config
-ETHERSCAN_API_KEY = parameters["EtherScanKey"]
-
 
 @dataclass
 class Dataset:
@@ -54,6 +51,24 @@ def policy_test(policy, dataset: Dataset, load_checkpoint):
 
     try:
         blacklist_policy.propagate_blacklist(dataset.start_block, dataset.block_number, load_checkpoint=load_checkpoint)
+        print("Metrics:")
+        print(blacklist_policy.get_blacklist_metrics())
+
+    except KeyboardInterrupt:
+        print("Keyboard interrupt received. Closing program.")
+    finally:
+        print(f"Tainted transactions: ")
+        blacklist_policy.print_tainted_transactions_per_account()
+        blacklist_policy.export_tainted_transactions(10)
+
+
+def permanently_tainted_accounts_test(policy, start_block, block_amount, load_checkpoint, data_folder, tainted_accounts: list):
+    blacklist_policy: BlacklistPolicy = policy(w3, data_folder=data_folder)
+    for account in tainted_accounts:
+        blacklist_policy.permanently_taint_account(account)
+
+    try:
+        blacklist_policy.propagate_blacklist(start_block, block_amount, load_checkpoint=load_checkpoint)
         print("Metrics:")
         print(blacklist_policy.get_blacklist_metrics())
 
@@ -102,15 +117,17 @@ if __name__ == '__main__':
 
     dataset = dataset_1
 
+    load_checkpoint_all = True
+
     if policy_id == 0:
-        policy_test(FIFOPolicy, dataset, load_checkpoint=True)
+        policy_test(FIFOPolicy, dataset, load_checkpoint=load_checkpoint_all)
     elif policy_id == 1:
-        policy_test(SeniorityPolicy, dataset, load_checkpoint=True)
+        policy_test(SeniorityPolicy, dataset, load_checkpoint=load_checkpoint_all)
     elif policy_id == 2:
-        policy_test(HaircutPolicy, dataset, load_checkpoint=True)
+        policy_test(HaircutPolicy, dataset, load_checkpoint=load_checkpoint_all)
     elif policy_id == 3:
-        policy_test(ReversedSeniorityPolicy, dataset, load_checkpoint=True)
+        policy_test(ReversedSeniorityPolicy, dataset, load_checkpoint=load_checkpoint_all)
     elif policy_id == 4:
-        policy_test(PoisonPolicy, dataset, load_checkpoint=True)
+        policy_test(PoisonPolicy, dataset, load_checkpoint=load_checkpoint_all)
     else:
         print(f"Invalid policy id {policy_id}. Must be a number between 0 and 4.")
