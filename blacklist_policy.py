@@ -32,6 +32,7 @@ class BlacklistPolicy(ABC):
         self._current_block = -1
         self._current_tx = ""
         self.temp_balances = None
+        self.permanent_taint_list = set()
 
         for folder in [f"{data_folder}", f"{data_folder}/checkpoints", f"{data_folder}/analytics", f"{data_folder}/logs"]:
             if not os.path.exists(folder):
@@ -80,6 +81,12 @@ class BlacklistPolicy(ABC):
         :return: the name of the current policy
         """
         pass
+
+    def permanently_taint_account(self, account):
+        self.permanent_taint_list.add(account)
+
+    def is_permanently_tainted(self, account):
+        return account in self.permanent_taint_list
 
     def export_metrics(self, total_eth):
         """
@@ -614,6 +621,7 @@ class BlacklistPolicy(ABC):
         """
         ret_val = self._blacklist.remove_from_blacklist(address, amount, currency)
 
+        # do not log this event for haircut, since the log file gets too large
         if ret_val > 0 and self.get_policy_name() != "Haircut":
             self._logger.debug(self._tx_log + f"Removed {self._format_exp(ret_val)} of blacklisted currency {currency} from account {address}.")
         elif ret_val == -1:

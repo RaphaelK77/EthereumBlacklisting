@@ -21,18 +21,22 @@ class HaircutPolicy(BlacklistPolicy):
         if currency_2 is None:
             currency_2 = currency
 
-        blacklist_value = self.get_blacklist_value(from_address, currency)
-        sender_balance = self._get_temp_balance(from_address, currency)
+        if self.is_permanently_tainted(from_address):
+            taint_proportion = 1
+            transferred_amount = amount_sent
+        else:
+            blacklist_value = self.get_blacklist_value(from_address, currency)
+            sender_balance = self._get_temp_balance(from_address, currency)
 
-        taint_proportion = blacklist_value / sender_balance
+            taint_proportion = blacklist_value / sender_balance
 
-        # use multiplication first and then integer division to minimize rounding error
-        transferred_amount = (amount_sent * blacklist_value) // sender_balance
+            # use multiplication first and then integer division to minimize rounding error
+            transferred_amount = (amount_sent * blacklist_value) // sender_balance
 
-        if transferred_amount == 0:
-            return 0
+            if transferred_amount == 0:
+                return 0
 
-        self.remove_from_blacklist(from_address, transferred_amount, currency)
+            self.remove_from_blacklist(from_address, transferred_amount, currency)
 
         if to_address is None or to_address == self._eth_utils.null_address:
             self._logger.info(self._tx_log + f"{amount_sent} tokens were burned, of which {transferred_amount} were blacklisted.")
@@ -58,21 +62,27 @@ class HaircutPolicy(BlacklistPolicy):
         total_fee_paid = gas_price * gas_used
         paid_to_miner = (gas_price - base_fee) * gas_used
 
-        blacklist_value = self.get_blacklist_value(sender, "ETH")
-        sender_balance = self._get_temp_balance(sender, "ETH")
+        if self.is_permanently_tainted(sender):
+            tainted_fee = total_fee_paid
+            tainted_fee_to_miner = paid_to_miner
+            taint_proportion = 1
+        else:
+            blacklist_value = self.get_blacklist_value(sender, "ETH")
+            sender_balance = self._get_temp_balance(sender, "ETH")
 
-        taint_proportion = blacklist_value / sender_balance
+            taint_proportion = blacklist_value / sender_balance
 
-        tainted_fee = (total_fee_paid * blacklist_value) // sender_balance
-        tainted_fee_to_miner = (paid_to_miner * blacklist_value) // sender_balance
+            tainted_fee = (total_fee_paid * blacklist_value) // sender_balance
+            tainted_fee_to_miner = (paid_to_miner * blacklist_value) // sender_balance
+
+            if tainted_fee == 0:
+                return
+
+            self.remove_from_blacklist(sender, tainted_fee, "ETH")
 
         self._reduce_temp_balance(sender, "ETH", total_fee_paid)
         self._increase_temp_balance(miner, "ETH", paid_to_miner)
 
-        if tainted_fee == 0:
-            return
-
-        self.remove_from_blacklist(sender, tainted_fee, "ETH")
         self.add_to_blacklist(miner, tainted_fee_to_miner, "ETH")
 
         self._record_tainted_transaction(sender, miner, fee=True)
