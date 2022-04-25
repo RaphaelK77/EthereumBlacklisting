@@ -1,3 +1,4 @@
+import csv
 import json
 import logging
 import sys
@@ -46,9 +47,11 @@ class BlacklistPolicy(ABC):
         if export_metrics:
             self.metrics_file = f"{data_folder}analytics/{name}.csv"
             self.transaction_metrics_file = f"{data_folder}analytics/{name}_transactions.csv"
+            self.account_metrics_file = f"{data_folder}analytics/{name}_accounts.csv"
         else:
             self.metrics_file = None
             self.transaction_metrics_file = None
+            self.account_metrics_file = None
 
         formatter = logging.Formatter("%(asctime)s %(name)s [%(levelname)s] %(message)s")
 
@@ -101,6 +104,17 @@ class BlacklistPolicy(ABC):
                 unique_accounts = self.get_blacklist_metrics()["UniqueTaintedAccounts"]
                 total_tainted_transactions = sum([item[1]['incoming'] for item in self._tainted_transactions_per_account.items()])
                 metrics_file_handler.write(f"{self._current_block},{unique_accounts},{self._format_exp(total_eth, 5)},{total_tainted_transactions}\n")
+        self.export_top_accounts(10)
+
+    def export_top_accounts(self, number):
+        if self.account_metrics_file:
+            top_accounts = self._blacklist.get_top_accounts(number, ["ETH", self._eth_utils.WETH])
+            if top_accounts is None:
+                return
+            with open(self.account_metrics_file, "w", newline="") as outfile:
+                writer = csv.writer(outfile)
+                writer.writerow(["Account", "Tainted ETH"])
+                writer.writerows(reversed(top_accounts.items()))
 
     def export_tainted_transactions(self, min_tx):
         """
@@ -273,6 +287,8 @@ class BlacklistPolicy(ABC):
             print("Starting amounts:")
             total_eth = self.print_blacklisted_amount()
             self.export_metrics(total_eth)
+
+        self.export_top_accounts(10)
 
         for i in range(loop_start_block, start_block + block_amount):
             self._process_block(i)
