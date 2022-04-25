@@ -1,12 +1,8 @@
 import configparser
-import csv
-import json
 import logging
 import sys
 from dataclasses import dataclass
 
-import numpy
-import pandas
 import requests.exceptions
 from web3 import Web3
 
@@ -106,20 +102,6 @@ if __name__ == '__main__':
                                                                       "0x47CE0C6eD5B0Ce3d3A51fdb1C52DC66a7c3c2936", "0xA160cdAB225685dA1d56aa342Ad8841c3b53f291"], data_folder_root + "tornado/")
 
     # ********* TESTING *************
-
-    # blacklist = json.load(open("data/dataset_1/checkpoints/Poison_transactions.json", "r"))
-    # keys = blacklist.keys()
-    # df = pandas.DataFrame.from_dict(blacklist)
-    # list_df = numpy.array_split(df, 10)
-    # [print(df) for df in list_df]
-    # exit(0)
-    #
-    # df.to_csv("data/dataset_1/checkpoints/Poison_transactions.csv")
-
-    # new_df = pandas.read_csv("data/dataset_1/checkpoints/Seniority_transactions.csv", index_col=0)
-    # print(new_df.transpose().to_dict())
-
-
 
     if len(sys.argv) != 2:
         print(f"Invalid argument string {sys.argv}.")

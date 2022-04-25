@@ -6,6 +6,7 @@ from abc import abstractmethod, ABC
 from typing import Optional, Sequence
 import os
 
+import pandas
 from web3 import Web3
 
 import utils
@@ -40,7 +41,7 @@ class BlacklistPolicy(ABC):
 
         name = self.get_policy_name().replace(' ', '_')
         self._checkpoint_file_blacklist = f"{data_folder}checkpoints/{name}_blacklist.json"
-        self._checkpoint_file_transactions = f"{data_folder}checkpoints/{name}_transactions.json"
+        self._checkpoint_file_transactions = f"{data_folder}checkpoints/{name}_transactions.csv"
 
         if export_metrics:
             self.metrics_file = f"{data_folder}analytics/{name}.csv"
@@ -199,27 +200,25 @@ class BlacklistPolicy(ABC):
 
     def _save_checkpoint(self):
         data_bl = {"block": self._current_block, "blacklist": self._blacklist.get_blacklist()}
-        data_tx = [self._tainted_transactions_per_account]
 
         with open(self._checkpoint_file_blacklist, "w") as outfile:
             json.dump(data_bl, outfile)
 
-        with open(self._checkpoint_file_transactions, "w") as outfile:
-            json.dump(data_tx, outfile)
+        pandas.DataFrame.from_dict(self._tainted_transactions_per_account).to_csv(self._checkpoint_file_transactions)
 
         self._logger.info(f"Successfully exported blacklist to {self._checkpoint_file_blacklist} and transaction records to {self._checkpoint_file_transactions}.")
 
     def load_from_checkpoint(self):
+        data_tx = None
         try:
             with open(self._checkpoint_file_blacklist, "r") as checkpoint:
                 data_bl = json.load(checkpoint)
-            with open(self._checkpoint_file_transactions, "r") as checkpoint:
-                data_tx = json.load(checkpoint)
+            data_tx = pandas.read_csv(self._checkpoint_file_transactions, index_col=0).to_dict()
         except FileNotFoundError:
             self._logger.info(f"No file found under path {self._checkpoint_file_blacklist}. Continuing without loading checkpoint.")
             return 0, {}, {}
         except MemoryError:
-            self._logger.error(f"Checkpoint JSON file is too large to be loaded into RAM. Exiting.")
+            self._logger.error(f"Checkpoint file is too large to be loaded into RAM. Exiting.")
             exit(-5)
         last_block = data_bl["block"]
         saved_blacklist = data_bl["blacklist"]
