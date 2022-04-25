@@ -140,8 +140,9 @@ class BlacklistPolicy(ABC):
         :param currency: token/ETH
         :param amount: amount to increase by
         """
-        if account not in self.temp_balances:
+        if account not in self.temp_balances or currency not in self.temp_balances[account]:
             self._add_to_temp_balances(account, currency)
+
         self.temp_balances[account][currency] += amount
 
         # self._logger.debug(f"Increased temp balance of {currency} by {format(amount, '.2e')} for {account}")
