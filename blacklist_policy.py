@@ -1,6 +1,7 @@
 import csv
 import json
 import logging
+import pickle
 import sys
 import time
 from abc import abstractmethod, ABC
@@ -41,8 +42,8 @@ class BlacklistPolicy(ABC):
                 os.makedirs(folder)
 
         name = self.get_policy_name().replace(' ', '_')
-        self._checkpoint_file_blacklist = f"{data_folder}checkpoints/{name}_blacklist.json"
-        self._checkpoint_file_transactions = f"{data_folder}checkpoints/{name}_transactions.csv"
+        self._checkpoint_file_blacklist = f"{data_folder}checkpoints/{name}_blacklist.pickle"
+        self._checkpoint_file_transactions = f"{data_folder}checkpoints/{name}_transactions.pickle"
 
         if export_metrics:
             self.metrics_file = f"{data_folder}analytics/{name}.csv"
@@ -216,19 +217,20 @@ class BlacklistPolicy(ABC):
     def _save_checkpoint(self):
         data_bl = {"block": self._current_block, "blacklist": self._blacklist.get_blacklist()}
 
-        with open(self._checkpoint_file_blacklist, "w") as outfile:
-            json.dump(data_bl, outfile)
+        with open(self._checkpoint_file_blacklist, "wb") as outfile:
+            pickle.dump(data_bl, outfile, pickle.HIGHEST_PROTOCOL)
 
-        pandas.DataFrame.from_dict(self._tainted_transactions_per_account).to_csv(self._checkpoint_file_transactions)
+        with open(self._checkpoint_file_transactions, "wb") as outfile:
+            pickle.dump(self._tainted_transactions_per_account, outfile, pickle.HIGHEST_PROTOCOL)
 
         self._logger.info(f"Successfully exported blacklist to {self._checkpoint_file_blacklist} and transaction records to {self._checkpoint_file_transactions}.")
 
     def load_from_checkpoint(self):
-        data_tx = None
         try:
-            with open(self._checkpoint_file_blacklist, "r") as checkpoint:
-                data_bl = json.load(checkpoint)
-            data_tx = pandas.read_csv(self._checkpoint_file_transactions, index_col=0).to_dict()
+            with open(self._checkpoint_file_blacklist, "rb") as checkpoint:
+                data_bl = pickle.load(checkpoint)
+            with open(self._checkpoint_file_transactions, "rb") as checkpoint:
+                data_tx = pickle.load(checkpoint)
         except FileNotFoundError:
             self._logger.info(f"No file found under path {self._checkpoint_file_blacklist}. Continuing without loading checkpoint.")
             return 0, {}, {}
