@@ -1,3 +1,4 @@
+import argparse
 import configparser
 import logging
 import sys
@@ -103,25 +104,41 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    if len(sys.argv) != 2:
-        print(f"Invalid argument string {sys.argv}.")
-        exit(-2)
+    parser = argparse.ArgumentParser(description="Test a policy with a predefined dataset")
+    parser.add_argument("--policy", type=str, required=True)
+    parser.add_argument("--dataset", type=int, required=True)
 
-    policy_id = int(sys.argv[1])
-
-    used_dataset = dataset_1
+    args = parser.parse_args()
 
     load_checkpoint_all = True
 
-    if policy_id == 0:
+    picked_policy = args.policy.lower()
+    picked_dataset = args.dataset
+
+    used_dataset = None
+
+    if picked_dataset == 1:
+        used_dataset = dataset_1
+    elif picked_dataset == 2:
+        used_dataset = dataset_2
+    elif picked_dataset == 3:
+        used_dataset = dataset_3
+    elif picked_dataset == 4:
+        used_dataset = dataset_tornado
+    else:
+        logger.error(f"Dataset {picked_dataset} does not exist.")
+        exit(-2)
+
+    if picked_policy == "fifo":
         policy_test(FIFOPolicy, used_dataset, load_checkpoint=load_checkpoint_all)
-    elif policy_id == 1:
+    elif picked_policy == "seniority":
         policy_test(SeniorityPolicy, used_dataset, load_checkpoint=load_checkpoint_all)
-    elif policy_id == 2:
+    elif picked_policy == "haircut":
         policy_test(HaircutPolicy, used_dataset, load_checkpoint=load_checkpoint_all)
-    elif policy_id == 3:
+    elif picked_policy == "reversed_seniority":
         policy_test(ReversedSeniorityPolicy, used_dataset, load_checkpoint=load_checkpoint_all)
-    elif policy_id == 4:
+    elif picked_policy == "poison":
         policy_test(PoisonPolicy, used_dataset, load_checkpoint=load_checkpoint_all)
     else:
-        print(f"Invalid policy id {policy_id}. Must be a number between 0 and 4.")
+        logger.error(f"Invalid policy name {picked_policy}.")
+        exit(-2)
