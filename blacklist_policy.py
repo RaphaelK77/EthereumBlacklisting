@@ -39,7 +39,8 @@ class BlacklistPolicy(ABC):
                 os.makedirs(folder)
 
         name = self.get_policy_name().replace(' ', '_')
-        self._checkpoint_file = f"{data_folder}checkpoints/{name}.json"
+        self._checkpoint_file_blacklist = f"{data_folder}checkpoints/{name}_blacklist.json"
+        self._checkpoint_file_transactions = f"{data_folder}checkpoints/{name}_transactions.json"
 
         if export_metrics:
             self.metrics_file = f"{data_folder}analytics/{name}.csv"
@@ -185,14 +186,6 @@ class BlacklistPolicy(ABC):
         """
         open(self.log_file, "w").close()
 
-    def _save_checkpoint(self, file_path):
-        data = {"block": self._current_block, "blacklist": self._blacklist.get_blacklist(), "tainted transactions": self._tainted_transactions_per_account}
-
-        with open(file_path, "w") as outfile:
-            json.dump(data, outfile)
-
-        self._logger.info(f"Successfully exported blacklist to {file_path}.")
-
     def export_blacklist(self, target_file):
         """
         Export the blacklist in json format
@@ -204,17 +197,34 @@ class BlacklistPolicy(ABC):
 
         self._logger.info(f"Successfully exported blacklist to {target_file}.")
 
-    def load_from_checkpoint(self, file_path):
+    def _save_checkpoint(self):
+        data_bl = {"block": self._current_block, "blacklist": self._blacklist.get_blacklist()}
+        data_tx = [self._tainted_transactions_per_account]
+
+        with open(self._checkpoint_file_blacklist, "w") as outfile:
+            json.dump(data_bl, outfile)
+
+        with open(self._checkpoint_file_transactions, "w") as outfile:
+            json.dump(data_tx, outfile)
+
+        self._logger.info(f"Successfully exported blacklist to {self._checkpoint_file_blacklist} and transaction records to {self._checkpoint_file_transactions}.")
+
+    def load_from_checkpoint(self):
         try:
-            with open(file_path, "r") as checkpoint:
-                data = json.load(checkpoint)
+            with open(self._checkpoint_file_blacklist, "r") as checkpoint:
+                data_bl = json.load(checkpoint)
+            with open(self._checkpoint_file_transactions, "r") as checkpoint:
+                data_tx = json.load(checkpoint)
         except FileNotFoundError:
-            self._logger.info(f"No file found under path {file_path}. Continuing without loading checkpoint.")
+            self._logger.info(f"No file found under path {self._checkpoint_file_blacklist}. Continuing without loading checkpoint.")
             return 0, {}, {}
-        last_block = data["block"]
-        saved_blacklist = data["blacklist"]
-        tainted_transactions = data["tainted transactions"]
-        self._logger.info(f"Loading saved data from {file_path}. Last block was {last_block}.")
+        except MemoryError:
+            self._logger.error(f"Checkpoint JSON file is too large to be loaded into RAM. Exiting.")
+            exit(-5)
+        last_block = data_bl["block"]
+        saved_blacklist = data_bl["blacklist"]
+        tainted_transactions = data_tx
+        self._logger.info(f"Loading saved data from {self._checkpoint_file_blacklist}. Last block was {last_block}.")
         return last_block, saved_blacklist, tainted_transactions
 
     def propagate_blacklist(self, start_block, block_amount, load_checkpoint=False):
@@ -240,7 +250,7 @@ class BlacklistPolicy(ABC):
         self._current_block = start_block
 
         if load_checkpoint:
-            saved_block, saved_blacklist, tainted_transactions = self.load_from_checkpoint(self._checkpoint_file)
+            saved_block, saved_blacklist, tainted_transactions = self.load_from_checkpoint()
             # only use loaded data if saved block is between start and end block
             if start_block + block_amount - 1 == saved_block:
                 self._logger.info("Target already reached. Exiting.")
@@ -281,7 +291,7 @@ class BlacklistPolicy(ABC):
                     total_eth = self.print_blacklisted_amount()
                 else:
                     total_eth = None
-                self._save_checkpoint(self._checkpoint_file)
+                self._save_checkpoint()
                 self.export_metrics(total_eth)
                 top_accounts = self._blacklist.get_top_accounts(5, ["ETH", self._eth_utils.WETH])
                 if top_accounts:
@@ -299,7 +309,7 @@ class BlacklistPolicy(ABC):
             self.sanity_check()
             print("Sanity check complete.")
 
-        self._save_checkpoint(self._checkpoint_file)
+        self._save_checkpoint()
         end_time = time.time()
         self._logger.info(
             f"Propagation complete. Total time: {utils.format_seconds_as_time(end_time - start_time)}, performance: " +
