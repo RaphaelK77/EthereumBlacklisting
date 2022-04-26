@@ -86,28 +86,31 @@ if __name__ == '__main__':
         print("No node found at the given address.")
         exit(-1)
 
+    datasets = []
+
     # amount of blocks the blacklist policy should be propagated for
     block_amount = 200000
 
     # vulcan forged hack
-    dataset_1 = Dataset("Vulcan Forged Hack", 13793875, block_amount, ["0x48ad05a3B73c9E7fAC5918857687d6A11d2c73B1", "0xe3cD90be37A79D9da86b5E14E2F6042Cd0e53b66"], data_folder_root + "dataset_1/")
+    datasets.append(
+        Dataset("Vulcan Forged Hack", 13793875, block_amount, ["0x48ad05a3B73c9E7fAC5918857687d6A11d2c73B1", "0xe3cD90be37A79D9da86b5E14E2F6042Cd0e53b66"], data_folder_root + "dataset_1/"))
 
     # afk system rug pull (tornado cash)
-    dataset_2 = Dataset("AFKSystem rugpull", 13200582, block_amount, ["0x56Eb4A5F64Fa21E13548b95109F42fa08A644628"], data_folder_root + "dataset_2/")
+    datasets.append(Dataset("AFKSystem rugpull", 13200582, block_amount, ["0x56Eb4A5F64Fa21E13548b95109F42fa08A644628"], data_folder_root + "dataset_2/"))
 
     # AnubisDAO liquidity rug
-    dataset_3 = Dataset("AnubisDAO liquidity rug", 13510000, block_amount, ["0x872254d530Ae8983628cb1eAafC51F78D78c86D9", "0x9fc53c75046900d1F58209F50F534852aE9f912a"],
-                        data_folder_root + "dataset_3/")
+    datasets.append(Dataset("AnubisDAO liquidity rug", 13510000, block_amount, ["0x872254d530Ae8983628cb1eAafC51F78D78c86D9", "0x9fc53c75046900d1F58209F50F534852aE9f912a"],
+                            data_folder_root + "dataset_3/"))
 
     # Permanently taint tornado cash (different accounts for 0.1, 1, 10 and 100 ETH)
-    dataset_tornado = Dataset("Tornado.Cash", 1300000, block_amount, ["0x910Cbd523D972eb0a6f4cAe4618aD62622b39DbF", "0x12D66f87A04A9E220743712cE6d9bB1B5616B8Fc",
-                                                                      "0x47CE0C6eD5B0Ce3d3A51fdb1C52DC66a7c3c2936", "0xA160cdAB225685dA1d56aa342Ad8841c3b53f291"], data_folder_root + "tornado/", True)
+    datasets.append(Dataset("Tornado.Cash", 1300000, block_amount, ["0x910Cbd523D972eb0a6f4cAe4618aD62622b39DbF", "0x12D66f87A04A9E220743712cE6d9bB1B5616B8Fc",
+                                                                    "0x47CE0C6eD5B0Ce3d3A51fdb1C52DC66a7c3c2936", "0xA160cdAB225685dA1d56aa342Ad8841c3b53f291"], data_folder_root + "tornado/", True))
 
     # ********* TESTING *************
 
     parser = argparse.ArgumentParser(description="Test a policy with a predefined dataset")
-    parser.add_argument("--policy", type=str, required=True)
-    parser.add_argument("--dataset", type=int, required=True)
+    parser.add_argument("--policy", type=str, required=True, help="Picked policy out of 'Poison', 'Haircut', 'FIFO', 'Seniority', or 'Reversed_Seniority'")
+    parser.add_argument("--dataset", type=int, required=True, help=f"Number of the chosen dataset (1 - {len(datasets)})")
 
     args = parser.parse_args()
 
@@ -118,14 +121,8 @@ if __name__ == '__main__':
 
     used_dataset = None
 
-    if picked_dataset == 1:
-        used_dataset = dataset_1
-    elif picked_dataset == 2:
-        used_dataset = dataset_2
-    elif picked_dataset == 3:
-        used_dataset = dataset_3
-    elif picked_dataset == 4:
-        used_dataset = dataset_tornado
+    if 1 <= picked_dataset <= len(datasets):
+        used_dataset = datasets[picked_dataset]
     else:
         logger.error(f"Dataset {picked_dataset} does not exist.")
         exit(-2)
