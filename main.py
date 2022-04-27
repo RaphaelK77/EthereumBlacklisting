@@ -108,9 +108,6 @@ if __name__ == '__main__':
 
     # ********* TESTING *************
 
-    test = w3.parity.trace_transaction("0xda397e8bc71ae60d60151802178ba41c42cc1a3d9a79977a7c92af8bdaf9fd10")
-    exit(5)
-
     parser = argparse.ArgumentParser(description="Test a policy with a predefined dataset")
     parser.add_argument("--policy", type=str, required=True, help="Picked policy out of 'Poison', 'Haircut', 'FIFO', 'Seniority', or 'Reversed_Seniority'")
     parser.add_argument("--dataset", type=int, required=True, help=f"Number of the chosen dataset (1 - {len(datasets)})")
