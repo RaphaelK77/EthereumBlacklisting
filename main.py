@@ -63,6 +63,13 @@ def policy_test(policy, dataset: Dataset, load_checkpoint):
         blacklist_policy.print_tainted_transactions_per_account()
         blacklist_policy.export_tainted_transactions(10)
 
+    except ValueError as e:
+        if e.args[0]["code"] == -32000:
+            logger.error(f"ValueError: the given start block {dataset.start_block:,} is likely pruned.")
+            exit(-32)
+        else:
+            raise e
+
     except KeyboardInterrupt:
         print("Keyboard interrupt received. Closing program.")
 
@@ -103,7 +110,7 @@ if __name__ == '__main__':
                             data_folder_root + "dataset_3/"))
 
     # Permanently taint tornado cash (different accounts for 0.1, 1, 10 and 100 ETH)
-    datasets.append(Dataset("Tornado.Cash", 1300000, block_amount, ["0x910Cbd523D972eb0a6f4cAe4618aD62622b39DbF", "0x12D66f87A04A9E220743712cE6d9bB1B5616B8Fc",
+    datasets.append(Dataset("Tornado.Cash", 13000000, block_amount, ["0x910Cbd523D972eb0a6f4cAe4618aD62622b39DbF", "0x12D66f87A04A9E220743712cE6d9bB1B5616B8Fc",
                                                                     "0x47CE0C6eD5B0Ce3d3A51fdb1C52DC66a7c3c2936", "0xA160cdAB225685dA1d56aa342Ad8841c3b53f291"], data_folder_root + "tornado/", True))
 
     # ********* TESTING *************
