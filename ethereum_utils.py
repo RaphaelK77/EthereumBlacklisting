@@ -66,7 +66,7 @@ class EthereumUtils:
     def get_block_receipts(self, block):
         return [utils.format_log_dict(log) for log in self.w3.manager.request_blocking("eth_getBlockReceipts", [block])]
 
-    def internal_transaction_to_event(self, internal_tx):
+    def internal_transaction_to_event(self, internal_tx) -> Optional[dict]:
         """
         Converts a transaction trace into an event that can be processed by check_transaction.
         Filters out internal transactions with no value.
@@ -84,10 +84,29 @@ class EthereumUtils:
             # self.logger.debug(f"Skipping internal transaction in {internal_tx['transactionHash']}, since it produced the error '{internal_tx['error']}' (trace {internal_tx['traceAddress']}).")
             return None
 
+        # check if this transaction follows a reverted one, pass it if true
+        for reverted_trace in self.reverted_traces:
+            if all(a == b for a, b in zip(reverted_trace, internal_tx["traceAddress"])):
+                # self.logger.debug(f"Skipping internal transaction in {internal_tx['transactionHash']} with trace {internal_tx['traceAddress']}, " +
+                #                   f"since it follows a reverted int. transaction with trace {reverted_trace}.")
+                return None
+
         if "value" not in internal_tx["action"] or "from" not in internal_tx["action"]:
-            return None
+            # process contract suicide
+            if "type" in internal_tx and internal_tx["type"] == "suicide":
+                value = int(internal_tx["action"]["balance"], base=16)
+                if value == 0:
+                    return None
+                event_type = "Suicide"
+                receiver = internal_tx["action"]["refundAddress"]
+                sender = internal_tx["action"]["address"]
+                return {"args": {"from": Web3.toChecksumAddress(sender), "to": Web3.toChecksumAddress(receiver),
+                                 "value": value}, "address": "ETH", "event": event_type}
+            else:
+                return None
 
         if "to" not in internal_tx["action"]:
+            # process contract creation
             if "type" in internal_tx and internal_tx["type"] == "create":
                 value = int(internal_tx["action"]["value"], base=16)
                 if value == 0:
@@ -102,12 +121,6 @@ class EthereumUtils:
 
         value = int(internal_tx["action"]["value"], base=16)
         if value > 0 and "callType" in internal_tx["action"] and internal_tx["action"]["callType"] == "call":
-            # check if this transaction follows a reverted one, pass it if true (check value first to not clog up log file)
-            for reverted_trace in self.reverted_traces:
-                if all(a == b for a, b in zip(reverted_trace, internal_tx["traceAddress"])):
-                    # self.logger.debug(f"Skipping internal transaction in {internal_tx['transactionHash']} with trace {internal_tx['traceAddress']}, " +
-                    #                   f"since it follows a reverted int. transaction with trace {reverted_trace}.")
-                    return None
 
             sender = internal_tx["action"]["from"]
             receiver = internal_tx["action"]["to"]
