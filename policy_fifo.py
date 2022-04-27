@@ -53,6 +53,7 @@ class FIFOPolicy(BlacklistPolicy):
         gas_used = transaction_log["gasUsed"]
         miner = full_block["miner"]
 
+        # return if neither sender nor miner are blacklisted
         if not (self.is_blacklisted(sender, "ETH") or self.is_blacklisted(miner, "ETH")):
             return
 

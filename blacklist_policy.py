@@ -7,6 +7,7 @@ import sys
 import time
 from abc import abstractmethod, ABC
 from typing import Optional, Sequence
+from logging.handlers import RotatingFileHandler
 
 from web3 import Web3
 
@@ -66,7 +67,7 @@ class BlacklistPolicy(ABC):
 
         self.log_file = f"{data_folder}logs/{self.get_policy_name().replace(' ', '_')}.log"
 
-        file_handler = logging.FileHandler(self.log_file)
+        file_handler = RotatingFileHandler(filename=self.log_file, mode="a", maxBytes=1024*1024*100, backupCount=1, encoding=None, delay=False)
         file_handler.setFormatter(formatter)
         file_handler.setLevel(logging.DEBUG)
         self._logger.addHandler(file_handler)
@@ -608,7 +609,7 @@ class BlacklistPolicy(ABC):
         :param currency: token or ETH; if not given, checks if account has any blacklisted currency
         :return: True if in blacklist
         """
-        return self._blacklist.is_blacklisted(address, currency)
+        return self.is_permanently_tainted(address) or self._blacklist.is_blacklisted(address, currency)
 
     def _add_currency_to_all(self, address, currency):
         return self._blacklist.add_currency_to_all(address, currency)
