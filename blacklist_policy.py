@@ -1,14 +1,13 @@
 import csv
 import json
 import logging
+import os
 import pickle
 import sys
 import time
 from abc import abstractmethod, ABC
 from typing import Optional, Sequence
-import os
 
-import pandas
 from web3 import Web3
 
 import utils
@@ -39,7 +38,10 @@ class BlacklistPolicy(ABC):
 
         for folder in [f"{data_folder}", f"{data_folder}/checkpoints", f"{data_folder}/analytics", f"{data_folder}/logs"]:
             if not os.path.exists(folder):
-                os.makedirs(folder)
+                try:
+                    os.makedirs(folder)
+                except FileExistsError:
+                    self._logger.warning(f"Tried to create data folder {folder} which already exists.")
 
         name = self.get_policy_name().replace(' ', '_')
         self._checkpoint_file_blacklist = f"{data_folder}checkpoints/{name}_blacklist.pickle"
@@ -217,11 +219,24 @@ class BlacklistPolicy(ABC):
     def _save_checkpoint(self):
         data_bl = {"block": self._current_block, "blacklist": self._blacklist.get_blacklist()}
 
-        with open(self._checkpoint_file_blacklist, "wb") as outfile:
-            pickle.dump(data_bl, outfile, pickle.HIGHEST_PROTOCOL)
+        try:
+            with open(self._checkpoint_file_blacklist + "2", "wb") as outfile:
+                pickle.dump(data_bl, outfile, pickle.HIGHEST_PROTOCOL)
 
-        with open(self._checkpoint_file_transactions, "wb") as outfile:
-            pickle.dump(self._tainted_transactions_per_account, outfile, pickle.HIGHEST_PROTOCOL)
+            with open(self._checkpoint_file_transactions + "2", "wb") as outfile:
+                pickle.dump(self._tainted_transactions_per_account, outfile, pickle.HIGHEST_PROTOCOL)
+
+            if os.path.isfile(self._checkpoint_file_blacklist):
+                os.remove(self._checkpoint_file_blacklist)
+            os.rename(self._checkpoint_file_blacklist + "2", self._checkpoint_file_blacklist)
+
+            if os.path.isfile(self._checkpoint_file_transactions):
+                os.remove(self._checkpoint_file_transactions)
+            os.rename(self._checkpoint_file_transactions + "2", self._checkpoint_file_transactions)
+
+        except MemoryError:
+            self._logger.error("Ran out of memory when trying to save checkpoint. Exiting.")
+            exit(-5)
 
         self._logger.info(f"Successfully exported blacklist to {self._checkpoint_file_blacklist} and transaction records to {self._checkpoint_file_transactions}.")
 

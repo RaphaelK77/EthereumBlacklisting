@@ -122,7 +122,7 @@ if __name__ == '__main__':
     used_dataset = None
 
     if 1 <= picked_dataset <= len(datasets):
-        used_dataset = datasets[picked_dataset]
+        used_dataset = datasets[picked_dataset-1]
     else:
         logger.error(f"Dataset {picked_dataset} does not exist.")
         exit(-2)

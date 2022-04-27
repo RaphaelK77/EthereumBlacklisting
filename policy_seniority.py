@@ -16,7 +16,7 @@ class SeniorityPolicy(BlacklistPolicy):
     def get_policy_name(self):
         return "Seniority"
 
-    def _transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None):
+    def _transfer_taint(self, from_address, to_address, amount_sent, currency, currency_2=None) -> int:
         if not self.is_blacklisted(from_address, currency):
             return 0
 
@@ -34,10 +34,10 @@ class SeniorityPolicy(BlacklistPolicy):
             self.remove_from_blacklist(from_address, transferred_amount, currency)
 
         if to_address is None:
-            return
+            return 0
         elif to_address == self._eth_utils.null_address:
             self._logger.debug(self._tx_log + f"{amount_sent} tokens were burned, of which {transferred_amount} were blacklisted.")
-            return
+            return 0
 
         self.add_to_blacklist(to_address, transferred_amount, currency_2)
 
