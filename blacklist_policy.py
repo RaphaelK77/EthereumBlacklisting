@@ -319,7 +319,7 @@ class BlacklistPolicy(ABC):
                 self._logger.info(
                     f"{total_blocks_scanned} ({format(total_blocks_scanned / block_amount * 100, '.2f')}%) blocks scanned, " +
                     f" {utils.format_seconds_as_time(elapsed_time)} elapsed ({utils.format_seconds_as_time(blocks_remaining * (elapsed_time / blocks_scanned))} remaining, " +
-                    f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min). Last block: {self._current_block}")
+                    f" {format(blocks_scanned / elapsed_time * 60, '.0f')} blocks/min). Last block: {self._current_block:,}")
                 if self.get_policy_name() != "Poison":
                     print("Blacklisted amounts:")
                     total_eth = self.print_blacklisted_amount()
@@ -644,6 +644,10 @@ class BlacklistPolicy(ABC):
                 symbol = "n/a"
             if name is None:
                 name = "n/a"
+            if len(name) > 25:
+                name = name[0:21] + "..."
+            if len(symbol) > 5:
+                symbol = symbol[0:4] + "..."
             print(f"\t{name: <25}\t{symbol: <5} ({currency_address: <42}):\t{format(blacklisted_amounts[currency], '.5e')},")
         if self._eth_utils.WETH not in blacklisted_amounts:
             blacklisted_amounts[self._eth_utils.WETH] = 0
