@@ -647,8 +647,8 @@ class BlacklistPolicy(ABC):
             if len(name) > 25:
                 name = name[0:21] + "..."
             if len(symbol) > 5:
-                symbol = symbol[0:4] + "..."
-            print(f"\t{name: <25}\t{symbol: <5} ({currency_address: <42}):\t{format(blacklisted_amounts[currency], '.5e')},")
+                symbol = symbol[0:4] + ".."
+            print(f"\t{name: <25}\t{symbol: <6} ({currency_address: <42}):\t{format(blacklisted_amounts[currency], '.5e')},")
         if self._eth_utils.WETH not in blacklisted_amounts:
             blacklisted_amounts[self._eth_utils.WETH] = 0
         if "ETH" not in blacklisted_amounts:
