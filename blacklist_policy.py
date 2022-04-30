@@ -285,6 +285,8 @@ class BlacklistPolicy(ABC):
             saved_block, saved_blacklist, tainted_transactions = self.load_from_checkpoint()
             # only use loaded data if saved block is between start and end block
             if start_block + block_amount - 1 == saved_block:
+                self._blacklist.set_blacklist(saved_blacklist)
+                self._tainted_transactions_per_account = tainted_transactions
                 self._logger.info("Target already reached. Exiting.")
                 return
             if start_block < saved_block < start_block + block_amount - 1:
