@@ -654,7 +654,7 @@ class BlacklistPolicy(ABC):
         if "ETH" not in blacklisted_amounts:
             blacklisted_amounts["ETH"] = 0
         total_eth = blacklisted_amounts['ETH'] + blacklisted_amounts[self._eth_utils.WETH]
-        print(f"\t{'Ether + Wrapped Ether': <25}\t{'ETH + WETH:': <49}" +
+        print(f"\t{'Ether + Wrapped Ether': <25}\t{'ETH + WETH:': <52}" +
               f"\t{format(total_eth, '.5e')},")
         print("}")
         return total_eth
