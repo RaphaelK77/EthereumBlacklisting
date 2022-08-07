@@ -80,7 +80,7 @@ class BlacklistPolicy(ABC):
     @abstractmethod
     def init_blacklist(self):
         """
-        Create the blacklist object
+        Creates the blacklist object
         """
         pass
 
@@ -99,7 +99,7 @@ class BlacklistPolicy(ABC):
 
     def export_metrics(self, total_eth):
         """
-        Export the metrics to the given csv file
+        Exports the metrics to the given csv file
 
         :param total_eth: total blacklisted Ether
         """
@@ -122,7 +122,7 @@ class BlacklistPolicy(ABC):
 
     def export_tainted_transactions(self, min_tx):
         """
-        Export the number of tainted transactions per account with a minimum of min_tx tainted transactions
+        Exports the number of tainted transactions per account with a minimum of min_tx tainted transactions
 
         :param min_tx: minimum number of tainted transactions, total of incoming and outgoing
         """
@@ -135,7 +135,7 @@ class BlacklistPolicy(ABC):
 
     def clear_metrics_file(self):
         """
-        Delete the contents of the metrics file.
+        Deletes the contents of the metrics file.
         Asks for confirmation first.
         """
         if self.metrics_file:
@@ -152,7 +152,7 @@ class BlacklistPolicy(ABC):
 
     def _increase_temp_balance(self, account, currency, amount):
         """
-        Increase the temp balance of the given account and currency by amount
+        Increases the temp balance of the given account and currency by amount
 
         :param account: address
         :param currency: token/ETH
@@ -167,7 +167,7 @@ class BlacklistPolicy(ABC):
 
     def _reduce_temp_balance(self, account, currency, amount):
         """
-        Reduce the temp balance of the given account and currency by amount
+        Reduces the temp balance of the given account and currency by amount
 
         :param account: address
         :param currency: token/ETH
@@ -181,7 +181,7 @@ class BlacklistPolicy(ABC):
 
     def _add_to_temp_balances(self, account, currency, get_balance=False):
         """
-        Add the given account & currency to temp balances
+        Adds the given account & currency to temp balances
 
         :param account: address
         :param currency: token/ETH
@@ -202,13 +202,13 @@ class BlacklistPolicy(ABC):
 
     def _clear_log(self):
         """
-        Clear the log file
+        Clears the log file
         """
         open(self.log_file, "w").close()
 
     def export_blacklist(self, target_file):
         """
-        Export the blacklist in json format
+        Exports the blacklist in json format
 
         :param target_file: file to write to
         """
@@ -261,7 +261,7 @@ class BlacklistPolicy(ABC):
 
     def propagate_blacklist(self, start_block, block_amount, load_checkpoint=False):
         """
-        Propagate the blacklist from the start block
+        Propagates the blacklist from the start block
 
         :param start_block: block to start from
         :param block_amount: amount of blocks to propagate for
@@ -353,7 +353,7 @@ class BlacklistPolicy(ABC):
 
     def _process_block(self, block: int):
         """
-        Check the given block for tainted transactions and change the blacklist accordingly
+        Checks the given block for tainted transactions and change the blacklist accordingly
 
         :param block: block number
         """
@@ -463,7 +463,7 @@ class BlacklistPolicy(ABC):
 
     def _record_tainted_transaction(self, sender, receiver, fee=False):
         """
-        Add a tainted transaction to the per-account records
+        Adds a tainted transaction to the per-account records
 
         :param sender: transaction sender
         :param receiver: transaction receiver (can be a miner)
@@ -484,7 +484,7 @@ class BlacklistPolicy(ABC):
     def _process_event(self, event):
         """
         Processes a deposit, withdrawal or transfer event or an internal transaction.
-        Update temporary balances and blacklist.
+        Updates temporary balances and blacklist.
 
         :param event: event dict
         """
@@ -588,7 +588,7 @@ class BlacklistPolicy(ABC):
 
     def add_to_blacklist(self, address: str, amount: int, currency: str, total_amount: int = None):
         """
-        Add the specified amount of the given currency to the given account's blacklisted balance.
+        Adds the specified amount of the given currency to the given account's blacklisted balance.
 
         :param total_amount: optional total amount for fifo
         :param address: Ethereum address
@@ -605,7 +605,7 @@ class BlacklistPolicy(ABC):
 
     def is_blacklisted(self, address: str, currency: Optional[str] = None) -> bool:
         """
-        Check if the address possesses any blacklisted value of given currency
+        Checks if the address possesses any blacklisted value of given currency
 
         :param address: Ethereum address
         :param currency: token or ETH; if not given, checks if account has any blacklisted currency
@@ -621,7 +621,7 @@ class BlacklistPolicy(ABC):
 
     def get_blacklisted_amount(self) -> dict:
         """
-        Get the total blacklisted amounts for each currency
+        Gets the total blacklisted amounts for each currency
 
         :return: dict of currency: amount
         """
@@ -629,7 +629,7 @@ class BlacklistPolicy(ABC):
 
     def print_blacklisted_amount(self):
         """
-        Print the total blacklisted amounts for each currency
+        Prints the total blacklisted amounts for each currency
 
         :return: total blacklisted ETH (ETH & WETH)
         """
@@ -663,7 +663,7 @@ class BlacklistPolicy(ABC):
 
     def remove_from_blacklist(self, address: str, amount: int, currency: str):
         """
-        Remove the specified amount of the given currency from the given account's blacklisted balance.
+        Removes the specified amount of the given currency from the given account's blacklisted balance.
 
         :param address: Ethereum address
         :param amount: amount to be removed
@@ -684,7 +684,7 @@ class BlacklistPolicy(ABC):
 
     def get_blacklist_metrics(self):
         """
-        Retrieve the underlying blacklist's metrics
+        Retrieves the underlying blacklist's metrics
 
         :return: dict of metric: value
         """
@@ -692,7 +692,7 @@ class BlacklistPolicy(ABC):
 
     def _get_balance(self, account, currency, block) -> int:
         """
-        Retrieve the balance of the given account and currency at the given block
+        Retrieves the balance of the given account and currency at the given block
 
         :param account: Ethereum account
         :param currency: token address/ETH
@@ -710,7 +710,7 @@ class BlacklistPolicy(ABC):
 
     def add_account_to_blacklist(self, address: str, block: int):
         """
-        Add an entire account to the blacklist.
+        Adds an entire account to the blacklist.
         The account dict will hold under "all" every currency already tainted.
 
         :param address: Ethereum address to blacklist
@@ -731,7 +731,7 @@ class BlacklistPolicy(ABC):
     @abstractmethod
     def _transfer_taint(self, from_address: str, to_address: str, amount_sent: int, currency: str, currency_2: str = None) -> int:
         """
-        Calculate the taint to be transferred and adjust the blacklist accordingly.
+        Calculates the taint to be transferred and adjust the blacklist accordingly.
         Different implementation for every policy.
 
         :param from_address: sender address
@@ -746,7 +746,7 @@ class BlacklistPolicy(ABC):
     @abstractmethod
     def _process_gas_fees(self, transaction_log, transaction, full_block, sender):
         """
-        Process any taint transferred by the gas fees of the given transaction.
+        Processes any taint transferred by the gas fees of the given transaction.
         Different implementation for every policy.
 
         :param transaction_log: transaction receipt
@@ -759,7 +759,7 @@ class BlacklistPolicy(ABC):
     def sanity_check(self):
         """
         Checks for any possible inconsistencies as a result of taint propagation.
-        Emits warnings it any are found.
+        Emits warnings if any are found.
         """
 
         full_blacklist = self.get_blacklist()
@@ -795,7 +795,7 @@ class BlacklistPolicy(ABC):
 
     def _format_exp(self, number: Optional[int], decimals: int = 2) -> str:
         """
-        Format number in exponential format
+        Formats number in exponential format
 
         :param number: number to be formatted
         :param decimals: numbers after comma, defaults to 2
