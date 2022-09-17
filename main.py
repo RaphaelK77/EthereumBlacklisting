@@ -30,6 +30,7 @@ parameters = config["PARAMETERS"]
 # use default Erigon URL for local provider
 local_provider = Web3.HTTPProvider("http://localhost:8545")
 
+# read data folder from config file
 data_folder_root = parameters["DataFolder"]
 
 
@@ -40,10 +41,10 @@ class Dataset:
     """
     name: str
     start_block: int
-    block_number: int
+    block_number: int  # amount of blocks to run for
     start_accounts: list
     data_folder: str
-    permanent_taint: bool = False
+    permanent_taint: bool = False  # whether to taint the starting accounts permanently (if false, only their current balance is tainted)
 
 
 def policy_test(policy, dataset: Dataset, load_checkpoint):
