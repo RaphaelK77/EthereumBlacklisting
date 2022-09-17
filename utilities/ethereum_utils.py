@@ -12,6 +12,10 @@ from abis import event_abis
 
 
 class EthereumUtils:
+    """
+    Provides utility functions relating to Ethereum
+    """
+
     def __init__(self, w3: Web3, logger):
         self.w3 = w3
         self.eth_list = ["0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"]

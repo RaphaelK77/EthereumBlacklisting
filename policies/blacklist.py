@@ -4,6 +4,10 @@ from typing import Set
 
 
 class Blacklist(ABC):
+    """
+    Abstract blacklist superclass
+    """
+
     def __init__(self):
         self._blacklist = None
 
@@ -103,6 +107,9 @@ class Blacklist(ABC):
 
 
 class SetBlacklist(Blacklist):
+    """
+    Blacklist using a set as the datastructure
+    """
 
     def get_top_accounts(self, number, currencies) -> dict:
         pass
@@ -147,6 +154,10 @@ class SetBlacklist(Blacklist):
 
 
 class DictBlacklist(Blacklist):
+    """
+    Blacklist using a dictionary as the datastructure
+    """
+
     def __init__(self):
         super().__init__()
         self._blacklist = {}
@@ -247,6 +258,10 @@ class DictBlacklist(Blacklist):
 
 
 class FIFOBlacklist(Blacklist):
+    """
+    Blacklist specifically for the FIFO policy, using a dict of accounts mapped to a list of transaction values and taint amounts
+    """
+
     def __init__(self):
         super(FIFOBlacklist, self).__init__()
         self._blacklist = {}

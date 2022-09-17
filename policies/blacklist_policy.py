@@ -11,9 +11,9 @@ from logging.handlers import RotatingFileHandler
 
 from web3 import Web3
 
-import utils
+from utilities import utils
 from blacklist import Blacklist
-from ethereum_utils import EthereumUtils
+from utilities.ethereum_utils import EthereumUtils
 
 
 class BlacklistPolicy(ABC):

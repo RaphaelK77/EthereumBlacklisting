@@ -7,12 +7,12 @@ from dataclasses import dataclass
 import requests.exceptions
 from web3 import Web3
 
-from blacklist_policy import BlacklistPolicy
-from policy_fifo import FIFOPolicy
-from policy_haircut import HaircutPolicy
-from policy_poison import PoisonPolicy
-from policy_reversed_seniority import ReversedSeniorityPolicy
-from policy_seniority import SeniorityPolicy
+from policies.blacklist_policy import BlacklistPolicy
+from policies.policy_fifo import FIFOPolicy
+from policies.policy_haircut import HaircutPolicy
+from policies.policy_poison import PoisonPolicy
+from policies.policy_reversed_seniority import ReversedSeniorityPolicy
+from policies.policy_seniority import SeniorityPolicy
 
 # configure logging
 logger = logging.getLogger(__name__)
@@ -35,6 +35,9 @@ data_folder_root = parameters["DataFolder"]
 
 @dataclass
 class Dataset:
+    """
+    Represents a dataset, including the experiment range, starting accounts and output folder
+    """
     name: str
     start_block: int
     block_number: int
@@ -44,6 +47,13 @@ class Dataset:
 
 
 def policy_test(policy, dataset: Dataset, load_checkpoint):
+    """
+    Runs the provided policy
+
+    :param policy: the blacklisting policy to be used
+    :param dataset: the dataset containing the parameters for execution
+    :param load_checkpoint: set true to load an existing checkpoint, false to ignore checkpoints
+    """
     blacklist_policy: BlacklistPolicy = policy(w3, data_folder=dataset.data_folder)
 
     print(f"Starting Policy test with policy '{blacklist_policy.get_policy_name()}' and dataset '{dataset.name}'.")
@@ -79,19 +89,21 @@ def policy_test(policy, dataset: Dataset, load_checkpoint):
 
 
 if __name__ == '__main__':
-    print("")
     logger.info("************ Starting **************")
 
     # setup web3
     w3 = Web3(local_provider)
 
-    # get the latest block and log it
+    # get the latest synchronized block and log it
+    # quit the program if no node was found
     try:
         latest_block = w3.eth.get_block_number()
         logger.info(f"Latest block: {latest_block}.")
     except requests.exceptions.ConnectionError:
-        print("No node found at the given address.")
+        logger.error("No node found at the given address.")
         exit(-1)
+
+    # ********* DATASETS *************
 
     datasets = []
 

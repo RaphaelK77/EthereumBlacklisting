@@ -1,3 +1,10 @@
+"""
+Starts an Erigon node with the data folder provided in the config
+Prunes blocks until the provided start_block
+Use RPC_only variable to run the node without synchronization once the desired block has been reached
+"""
+
+import configparser
 import logging
 import signal
 import subprocess
@@ -6,17 +13,11 @@ import time
 
 from web3 import Web3
 
-START_BLOCK_MARGIN = 1000
-END_BLOCK_MARGIN = 1000
-
 MAX_SYNC_WAIT_TIME = 600  # in seconds
 HANDLER_POLL_TIME = 30  # seconds
 
+# starts node in RPC mode (use once synchronization is complete)
 RPC_ONLY = True
-
-DATA_DIR = "A:\\Ethereum"
-
-data_file = "E:\\Ethereum\\download_data\\download_data_erigon.csv"
 
 
 def shutdown(proc):
@@ -36,7 +37,7 @@ def wait_until_sync(w3):
         if syncing:
             logging.info("Waiting complete, node is syncing.")
             return syncing
-    logging.warning("Waited for the maximum amount of time, but node has not started syncing.")
+    logging.error("Waited for the maximum amount of time, but node has not started syncing.")
     return False
 
 
@@ -44,7 +45,7 @@ def wait_for_pipe(max_attempts):
     for i in range(max_attempts):
         try:
             time.sleep(10)
-            local_provider = Web3.HTTPProvider()  # "\\\\.\\pipe\\geth.ipc"
+            local_provider = Web3.HTTPProvider()
             w3 = Web3(local_provider)
             try:
                 _ = w3.eth.syncing
@@ -59,11 +60,11 @@ def wait_for_pipe(max_attempts):
 
 
 def start_rpc_daemon():
-    return subprocess.Popen(["rpcdaemon", f"--datadir={DATA_DIR}", "--private.api.addr=localhost:9090", "--http.api=eth,erigon,web3,net,debug,trace,txpool"], shell=True)
+    return subprocess.Popen(["rpcdaemon", f"--datadir={data_dir}", "--private.api.addr=localhost:9090", "--http.api=eth,erigon,web3,net,debug,trace,txpool"], shell=True)
 
 
 def start_node_process(start_block: int):
-    args = ["erigon", f"--datadir={DATA_DIR}", "--prune=hrtc", f"--prune.h.before={start_block}", f"--prune.r.before={start_block}", f"--prune.t.before={start_block}",
+    args = ["erigon", f"--datadir={data_dir}", "--prune=hrtc", f"--prune.h.before={start_block}", f"--prune.r.before={start_block}", f"--prune.t.before={start_block}",
             f"--prune.c.before={start_block}", "--nodiscover"]
 
     return subprocess.Popen(args, shell=True)
@@ -89,9 +90,15 @@ def start_node(start_block):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
+    if len(sys.argv) != 2:
         logging.error("Usage: node_process_handler.py [start_block]")
         exit(-1)
+
+    config = configparser.ConfigParser()
+    config.read("config.ini")
+    parameters = config["PARAMETERS"]
+    data_dir = parameters["NodeDataDir"]
+
     start_block_arg = int(sys.argv[1])
     logging.info(f"Starting node with start block {start_block_arg:,}.")
     start_node(start_block_arg)

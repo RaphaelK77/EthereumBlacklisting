@@ -10,6 +10,11 @@ def format_seconds_as_time(seconds):
 
 
 def format_log_dict(log_dict: AttributeDict) -> AttributeDict:
+    """
+    Format a transaction log dictionary correctly for use by the blacklist
+    :param log_dict: AttributeDict with all attributes formatted as strings
+    :return: correctly formatted AttributeDict
+    """
     result_dict = {}
 
     for hex_key in ["blockHash", "transactionHash"]:
