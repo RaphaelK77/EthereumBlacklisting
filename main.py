@@ -92,18 +92,6 @@ def policy_test(policy, dataset: Dataset, load_checkpoint):
 if __name__ == '__main__':
     logger.info("************ Starting **************")
 
-    # setup web3
-    w3 = Web3(local_provider)
-
-    # get the latest synchronized block and log it
-    # quit the program if no node was found
-    try:
-        latest_block = w3.eth.get_block_number()
-        logger.info(f"Latest block: {latest_block}.")
-    except requests.exceptions.ConnectionError:
-        logger.error("No node found at the given address.")
-        exit(-1)
-
     # ********* DATASETS *************
 
     datasets = []
@@ -126,7 +114,9 @@ if __name__ == '__main__':
     datasets.append(Dataset("Tornado.Cash", 13000000, block_amount, ["0x910Cbd523D972eb0a6f4cAe4618aD62622b39DbF", "0x12D66f87A04A9E220743712cE6d9bB1B5616B8Fc",
                                                                      "0x47CE0C6eD5B0Ce3d3A51fdb1C52DC66a7c3c2936", "0xA160cdAB225685dA1d56aa342Ad8841c3b53f291"], data_folder_root + "tornado/", True))
 
-    # ********* TESTING *************
+    # ********* PARSE ARGUMENTS *************
+
+    used_dataset = None
 
     parser = argparse.ArgumentParser(description="Test a policy with a predefined dataset")
     parser.add_argument("--policy", type=str, required=True, help="Picked policy out of 'Poison', 'Haircut', 'FIFO', 'Seniority', or 'Reversed_Seniority'")
@@ -134,18 +124,33 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    load_checkpoint_all = True
-
     picked_policy = args.policy.lower()
     picked_dataset = args.dataset
-
-    used_dataset = None
 
     if 1 <= picked_dataset <= len(datasets):
         used_dataset = datasets[picked_dataset - 1]
     else:
         logger.error(f"Dataset {picked_dataset} does not exist.")
         exit(-2)
+
+    # ********* SETUP *************
+
+    # setup web3
+    w3 = Web3(local_provider)
+
+    # get the latest synchronized block and log it
+    # quit the program if no node was found
+    try:
+        latest_block = w3.eth.get_block_number()
+        logger.info(f"Latest block: {latest_block}.")
+    except requests.exceptions.ConnectionError:
+        logger.error("No node found at the given address.")
+        exit(-1)
+
+    # ********* TESTING *************
+
+    # load checkpoints for all policies
+    load_checkpoint_all = True
 
     if picked_policy == "fifo":
         policy_test(FIFOPolicy, used_dataset, load_checkpoint=load_checkpoint_all)

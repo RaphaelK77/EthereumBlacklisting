@@ -1,5 +1,5 @@
-from blacklist import SetBlacklist
-from blacklist_policy import BlacklistPolicy
+from policies.blacklist import SetBlacklist
+from policies.blacklist_policy import BlacklistPolicy
 
 
 class PoisonPolicy(BlacklistPolicy):

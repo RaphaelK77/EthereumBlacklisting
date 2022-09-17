@@ -6,9 +6,9 @@ from web3 import Web3
 from web3.datastructures import AttributeDict
 from web3.logs import DISCARD
 
-import abis
-import utils
-from abis import event_abis
+import utilities.abis
+import utilities.utils
+from utilities.abis import event_abis
 
 
 class EthereumUtils:

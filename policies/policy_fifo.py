@@ -1,7 +1,7 @@
 from typing import Optional
 
-from blacklist import FIFOBlacklist
-from blacklist_policy import BlacklistPolicy
+from policies.blacklist import FIFOBlacklist
+from policies.blacklist_policy import BlacklistPolicy
 
 
 class FIFOPolicy(BlacklistPolicy):

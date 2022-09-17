@@ -1,5 +1,5 @@
-from blacklist import DictBlacklist
-from blacklist_policy import BlacklistPolicy
+from policies.blacklist import DictBlacklist
+from policies.blacklist_policy import BlacklistPolicy
 
 
 class SeniorityPolicy(BlacklistPolicy):
