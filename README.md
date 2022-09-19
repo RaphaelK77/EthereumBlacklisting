@@ -10,7 +10,10 @@ The main file allows for the customization using different datasets (the 4 datas
 The program is then executed as follows:
 
 To run the analysis program:
-> python main.py --policy <'Poison', 'Haircut', 'FIFO', 'Seniority', or 'Reversed_Seniority'> --dataset \<dataset number>
+> python main.py --policy \<policy name> --dataset \<dataset number>
+
+Available policy names are 'Poison', 'Haircut', 'FIFO', 'Seniority', and 'Reversed_Seniority'.
+
 
 To run the Erigon node:
 > python node_process_handler <start_block>
